@@ -2,6 +2,9 @@ import numpy as np
 
 from numba import njit
 
+from .__util__ import void
+
+
 @njit(cache=True)
 def _decimize (phi, m, dPhi, dM, blocksize):
     halfblocksize = blocksize//2
@@ -97,6 +100,8 @@ class correlator (object):
         #self.jit_kernel = kernel_factory(self.phi[0],0,0.)
         self.jit_kernel = kernel.make_kernel(self.phi_[0],0,0.)
 
+    def phi_addr (self):
+        return void(self.phi_)
 
     def initial_values (self, imax=50):
         iend = imax
@@ -120,7 +125,7 @@ class correlator (object):
     def solve_block (self, istart, iend):
         _solve_block (istart, iend, self.h, self.nu/self.h, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy)
 
-    def solve_all (self, correlators, callback=lambda i1,i2,corr:None):
+    def solve_all (self, correlators, callback=lambda d,i1,i2,corr:None):
         blocksize = self.blocksize
         halfblocksize = self.halfblocksize
         blocks = self.blocks
@@ -131,7 +136,7 @@ class correlator (object):
                 _phi_.t[:halfblocksize] = _phi_.h * np.arange(halfblocksize)
                 _phi_.phi[:halfblocksize,:] = _phi_.phi_[:halfblocksize,:]
                 _phi_.m[:halfblocksize,:] = _phi_.m_[:halfblocksize,:]
-        callback (0, halfblocksize, correlators)
+        callback (0, 0, halfblocksize, correlators)
         for d in range(blocks):
             for _phi_ in correlators:
                 _phi_.solve_block (_phi_.halfblocksize, _phi_.blocksize)
@@ -139,25 +144,51 @@ class correlator (object):
                     _phi_.t[d*halfblocksize+halfblocksize:d*halfblocksize+blocksize] = _phi_.h * np.arange(halfblocksize,blocksize)
                     _phi_.phi[d*halfblocksize+halfblocksize:d*halfblocksize+blocksize,:] = _phi_.phi_[halfblocksize:blocksize,:]
                     _phi_.m[d*halfblocksize+halfblocksize:d*halfblocksize+blocksize,:] = _phi_.m_[halfblocksize:blocksize,:]
-            callback (halfblocksize, blocksize, correlators)
+            callback (d, halfblocksize, blocksize, correlators)
             for _phi_ in correlators:
                 _phi_.decimize ()
 
-def solve_all(correlators, callback=lambda istart, iend, corr:None):
-  phi = correlators[0]
-  blocksize = phi.blocksize
-  halfblocksize = phi.halfblocksize
-  blocks = phi.blocks
-  for _phi_ in correlators:
-      _phi_.initial_values ()
-      _phi_.solve_block (_phi_.iend, halfblocksize)
-  callback (0, halfblocksize, correlators)
-  for d in range(blocks):
-      for _phi_ in correlators:
-          _phi_.solve_block (_phi_.halfblocksize, _phi_.blocksize)
-      callback (halfblocksize, blocksize, correlators)
-      for _phi_ in correlators:
-          _phi_.decimize ()
+@njit(cache=True)
+def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, accuracy):
+    A = dM[1] + 1.5*nutmp
+
+    for i in range(istart,iend):
+        ibar = i//2
+        C = (m[i]-m[i-1])*dPhi[1] - phi[i-1]*dM[1]
+        for k in range(2,ibar+1):
+            C += (m[i-k+1] - m[i-k]) * dPhi[k]
+            C += (phi[i-k+1] - phi[i-k]) * dM[k]
+        if (i-ibar > ibar):
+            C += (phi[i-k+1] - phi[i-k]) * dM[k]
+        C += m[i-ibar] * phi[ibar]
+        C += (-2.0*phi[i-1] + 0.5*phi[i-2]) * nutmp
+        C += -6.0
+        C = C/A
+
+        m[i] = kernel (None, i, h*i)
+        phi[i] = - C
+
+
+class mean_squared_displacement (correlator):
+
+    def initial_values (self, imax=50):
+        iend = imax
+        if (iend > self.halfblocksize): iend = self.halfblocksize
+        for i in range(iend):
+            t = i*self.h0
+            self.phi_[i] = np.ones(self.mdimen)*6.*t/self.nu
+            self.m_[i] = self.jit_kernel (None, i, t)
+        for i in range(1,iend):
+            self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
+            self.dM_[i] = 0.5 * (self.m_[i-1] + self.m_[i])
+        self.dPhi_[iend] = self.phi_[iend-1]
+        self.dM_[iend] = self.m_[iend-1]
+        self.iend = iend
+
+    def solve_block (self, istart, iend):
+        _msd_solve_block (istart, iend, self.h, self.nu/self.h, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy)
+
+
 
 @njit
 def _fsolve (f, m, kernel, M, accuracy, maxiter):
