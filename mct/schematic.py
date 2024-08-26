@@ -57,7 +57,7 @@ class f12model (model_base):
 
 class f12gammadot_model (f12model):
     def __init__ (self, v1, v2, gammadot=0.0, gammac=0.1):
-        f12model.__init__(v1, v2)
+        f12model.__init__(self, v1, v2)
         self.gammadot = gammadot
         self.gammac = gammac
     def make_kernel (self, phi, i=0, t=0.0):

@@ -25,17 +25,17 @@ model = mct.f12model (args.v1, args.v2)
 phi = mct.correlator (kernel = model, maxiter=1000000, blocksize=256, accuracy=1e-10, store=True)
 correlators = [phi]
 
-#model_s = mct.sjoegren_model(args.vs,phi)
-#phi_s = mct.correlator (kernel = model_s, base=phi, store=True)
-#correlators.append (phi_s)
+model_s = mct.sjoegren_model(args.vs,phi)
+phi_s = mct.correlator (kernel = model_s, base=phi, store=True)
+correlators.append (phi_s)
 
-#model_msd = mct.schematic.msd_model(args.vs,phi_s)
-#msd = mct.mean_squared_displacement (kernel = model_msd, base=phi_s, store=True)
-#correlators.append (msd)
+model_msd = mct.schematic.msd_model(args.vs,phi_s)
+msd = mct.mean_squared_displacement (kernel = model_msd, base=phi_s, store=True)
+correlators.append (msd)
 
-#shear_model = mct.f12gammadot_model (args.v1, args.v2, gammadot=args.gammadot)
-#phi_gdot = mct.correlator (kernel = shear_model, maxiter=1000000, blocksize=256, accuracy=1e-10, store=True)
-#correlators.append(phi_gdot)
+shear_model = mct.f12gammadot_model (args.v1, args.v2, gammadot=args.gammadot)
+phi_gdot = mct.correlator (kernel = shear_model, maxiter=1000000, blocksize=256, accuracy=1e-10, store=True)
+correlators.append(phi_gdot)
 
 def output (d, istart, iend, correlator_array, filter=0):
     first = correlator_array[0]
@@ -50,31 +50,30 @@ def output (d, istart, iend, correlator_array, filter=0):
             print ("#")
 def output (d, istart, iend, correlator_array):
     print ("block",d,"\r",end='')
-    print ("")
 
 
 f = mct.nonergodicity_parameter (model)
 f.solve()
 print(f.f,f.m)
 
-ev = mct.eigenvalue (f)
-ev.solve()
-print ("# eigenvalue = {:f} (check ehat: {:f})".format(ev.eval,ev.eval2))
-print ("# e = {}".format(ev.e))
-print ("# ehat = {}".format(ev.ehat))
-print ("# lambda = {:f}".format(ev.lam))
+#ev = mct.eigenvalue (f)
+#ev.solve()
+#print ("# eigenvalue = {:f} (check ehat: {:f})".format(ev.eval,ev.eval2))
+#print ("# e = {}".format(ev.e))
+#print ("# ehat = {}".format(ev.ehat))
+#print ("# lambda = {:f}".format(ev.lam))
 
 
 phi.solve_all(correlators, callback=output)
 print("")
 
 plt.plot(phi.t,phi.phi)
-#plt.plot(phi_gdot.t,phi_gdot.phi)
-#plt.plot(phi_s.t,phi_s.phi)
+plt.plot(phi_gdot.t,phi_gdot.phi)
+plt.plot(phi_s.t,phi_s.phi)
 plt.xscale('log')
 plt.show()
 
-#plt.plot(msd.t,msd.phi)
-#plt.xscale('log')
-#plt.yscale('log')
-#plt.show()
+plt.plot(msd.t,msd.phi)
+plt.xscale('log')
+plt.yscale('log')
+plt.show()
