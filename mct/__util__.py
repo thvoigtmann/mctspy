@@ -16,30 +16,36 @@ def address_as_void_pointer(typingctx, src):
 
 # take 3-tuple of addres, shape, dtype
 @nb.njit
-def nparray(ast):
-  return nb.carray(address_as_void_pointer(ast[0]),ast[1],ast[2])
+def nparray(ast,i=None):
+    return nb.carray(address_as_void_pointer(ast[0]),ast[1],ast[2])
 
 def void(nparray):
-  return nparray.ctypes.data, nparray.shape, nparray.dtype
+    return nparray.ctypes.data, nparray.shape, nparray.dtype
 
 
 class model_base (object):
     def __len__ (self):
         return 1
-    def get_kernel (self, phi, i=0, t=0.0):
-        if not '__m__' in dir(self):
+    def set_base (self, array):
+        self.phi = void(array)
+
+    def cache (self):
+        if 'base' in dir(self): return False
+        return True
+    def get_kernel (self, phi, i, t):
+        if not self.cache() or not '__m__' in dir(self):
             self.__m__ = self.make_kernel(phi,i,t)
         return self.__m__
     def get_dm (self, phi, dphi):
-        if not '__dm__' in dir(self):
+        if not self.cache() or not '__dm__' in dir(self):
             self.__dm__ = self.make_dm(phi,dphi)
         return self.__dm__
     def get_dmhat (self, f, ehat):
-        if not '__dmhat__' in dir(self):
+        if not self.cache() or not '__dmhat__' in dir(self):
             self.__dmhat__ = self.make_dmhat(f,ehat)
         return self.__dmhat__
     def get_dm2 (self, phi, dphi):
-        if not '__dm2__' in dir(self):
+        if not self.cache() or not '__dm2__' in dir(self):
             self.__dm2__ = self.make_dm2(phi,dphi)
         return self.__dm2__
 
@@ -67,3 +73,8 @@ class model_base (object):
         def dummy(phi, dphi):
             return np.zeros(M)
         return dummy
+
+
+def solver_base(object):
+    def phi_addr(self):
+        return None

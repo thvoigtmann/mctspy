@@ -2,33 +2,37 @@ import numpy as np
 
 from numba import njit
 
+from .__util__ import void
+
 @njit
 def _fsolve (f, m, kernel, M, accuracy, maxiter):
     iterations = 0
     converged = False
-    newf = np.ones(M)
+    newf = np.ones((M,1))
     while (not converged and iterations < maxiter):
         iterations+=1
-        f = newf
-        m = kernel (f,0,0.)
+        f[:] = newf
+        m[:] = kernel (f,0,0.)
         newf = m / (1.0+m)
         if np.isclose (newf, f, rtol=accuracy, atol=0.0).all():
             converged = True
-            f = newf
+            f[:] = newf
         if not iterations%100: print("iter",iterations,f[0])
-    return f,m
 
 class nonergodicity_parameter (object):
     def __init__ (self, model, accuracy=1e-12, maxiter=1000000):
         self.model = model
         self.accuracy = accuracy
         self.maxiter = maxiter
-        self.f = np.zeros(len(model))
-        self.m = np.zeros(len(model))
-        self.jit_kernel = model.get_kernel(self.f)
+        self.f = np.zeros((len(model),1))
+        self.m = np.zeros((len(model),1))
+        self.jit_kernel = model.get_kernel(self.f,0,0.0)
+        self.model.set_base(self.f)
 
     def solve (self):
-        self.f,self.m = _fsolve(self.f, self.m, self.jit_kernel, len(self.model), self.accuracy, self.maxiter)
+        print (void(self.f))
+        _fsolve(self.f, self.m, self.jit_kernel, len(self.model), self.accuracy, self.maxiter)
+        print (void(self.f))
 
 
 @njit

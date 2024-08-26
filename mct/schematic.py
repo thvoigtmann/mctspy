@@ -1,3 +1,5 @@
+import numpy as np
+
 from numba import njit, carray
 from .__util__ import nparray, model_base
 
@@ -7,19 +9,16 @@ class schematic (model_base):
         self.M = M
     def __len__ (self):
         return self.M
-    def make_kernel (self, phi, i=None, t=0.0):
+    def make_kernel (self, phi, i, t):
         F = self.func
-        if i is None:
-            @njit
-            def ker(phi):
-                return F(phi)
-        else:
-            @njit
-            def ker(phi, i, t):
-                return F(phi)
+        @njit
+        def ker(phi, i, t):
+            return F(phi)
         return ker
-    def m (self, phi=0, i=0, t=0):
-        return self.func(phi)
+
+@njit
+def f12kernel(phi,v1,v2):
+    return v1*phi+v2*phi*phi
 
 class f12model (model_base):
     def __init__ (self, v1, v2):
@@ -27,7 +26,7 @@ class f12model (model_base):
         self.v2 = v2
     def __len__ (self):
         return 1
-    def make_kernel (self, phi, i=0, t=0.0):
+    def make_kernel (self, phi, i, t):
         v1 = self.v1
         v2 = self.v2
         @njit
@@ -60,7 +59,7 @@ class f12gammadot_model (f12model):
         f12model.__init__(self, v1, v2)
         self.gammadot = gammadot
         self.gammac = gammac
-    def make_kernel (self, phi, i=0, t=0.0):
+    def make_kernel (self, phi, i, t):
         v1 = self.v1
         v2 = self.v2
         gammadot = self.gammadot
@@ -72,51 +71,58 @@ class f12gammadot_model (f12model):
         return ker
 
 class sjoegren_model (model_base):
-    def __init__ (self, vs, base_correlator):
+    def __init__ (self, vs, base_model):
         self.vs = vs
-        #self.base = base_correlator
-        self.base_phi = base_correlator.phi_addr()
+        self.base = base_model
     def __len__ (self):
         return 1
-    def make_kernel (self, phis, i=None, t=0.0):
+    def make_kernel (self, phis, i, t):
         vs = self.vs
-        base_phi = self.base_phi
-        if i is None:
-            @njit
-            def ker(phis):
-                phi = nparray(base_phi)
-                return vs*phi*phis
-        else:
-            @njit
-            def ker(phis, i, t):
-                phi = nparray(base_phi)
-                return vs * phi[i] * phis
+        base_phi = self.base.phi
+        @njit
+        def ker(phis, i, t):
+            phi = nparray(base_phi)
+            return vs * phi[i] * phis
         return ker
-    def m (self, phi=0, i=0, t=0):
-        return self.vs * phi * self.base.phi[i]
 
 
 
 class msd_model (model_base):
-    def __init__ (self, vs, base_correlator):
+    def __init__ (self, vs, base_model):
         self.vs = vs
-        #self.base = base_correlator
-        self.base_phi = base_correlator.phi_addr()
+        self.base = base_model
     def __len__ (self):
         return 1
-    def make_kernel (self, phis, i=None, t=0.0):
+    def make_kernel (self, phis, i, t):
         vs = self.vs
-        base_phi = self.base_phi
-        if i is None:
-            @njit
-            def ker(phis):
-                phi = nparray(base_phi)
-                return vs*phi*phi
-        else:
-            @njit
-            def ker(phis, i, t):
-                phi = nparray(base_phi)
-                return vs * phi[i] * phi[i]
+        base_phi = self.base.phi
+        @njit
+        def ker(phis, i, t):
+            phi = nparray(base_phi)
+            return vs * phi[i] * phi[i]
         return ker
-    def m (self, phi=0, i=0, t=0):
-        return self.vs * self.base.phi[i] * self.base.phi[i]
+
+
+class bosse_krieger_model (model_base):
+    def __init__ (self, v1, v2, v3):
+        self.v1 = v1
+        self.v2 = v2
+        self.v3 = v3
+    def __len__ (self):
+        return 2
+    def m (self, phi=np.zeros(2), i=0, t=0):
+        return np.array([self.v1 * phi[0]*phi[0] + self.v2 * phi[1]*phi[1],
+                         self.v3 * phi[0]*phi[1]])
+    def dm (self, phi, dphi):
+        return np.array([2.*self.v1*phi[0]*dphi[0]+2.*self.v2*phi[1]*dphi[1],
+                         self.v3 * (phi[0]*dphi[1] + phi[1]*dphi[0])])
+    def dmhat (self, f, ehat):
+        return np.array([(1-f[0])*2.*self.v1*f[0]*ehat[0]*(1-f[0])
+                         +(1-f[1])*self.v3*f[1]*ehat[1]*(1-f[1]),
+                         (1-f[0])*2.*self.v2*f[1]*ehat[0]*(1-f[0])
+                         +(1-f[1])*self.v3*f[0]*ehat[1]*(1-f[1])])
+    def dm2 (self, phi, dphi):
+        return np.array([self.v1*dphi[0]*dphi[0]+self.v2*dphi[1]*dphi[1],
+                         self.v3 * dphi[0]*dphi[1]])
+
+

@@ -22,19 +22,19 @@ args = parser.parse_args()
 model = mct.f12model (args.v1, args.v2)
 #v1,v2 = args.v1,args.v2
 #model = mct.schematic (njit(lambda x:v1*x + v2*x*x))
-phi = mct.correlator (kernel = model, maxiter=1000000, blocksize=256, accuracy=1e-10, store=True)
+phi = mct.correlator (model = model, maxiter=1000000, blocksize=256, accuracy=1e-10, store=True)
 correlators = [phi]
 
-model_s = mct.sjoegren_model(args.vs,phi)
-phi_s = mct.correlator (kernel = model_s, base=phi, store=True)
+model_s = mct.sjoegren_model(args.vs,model)
+phi_s = mct.correlator (model = model_s, base=phi, store=True)
 correlators.append (phi_s)
 
-model_msd = mct.schematic.msd_model(args.vs,phi_s)
-msd = mct.mean_squared_displacement (kernel = model_msd, base=phi_s, store=True)
+model_msd = mct.schematic.msd_model(args.vs,model_s)
+msd = mct.mean_squared_displacement (model = model_msd, base=phi_s, store=True)
 correlators.append (msd)
 
 shear_model = mct.f12gammadot_model (args.v1, args.v2, gammadot=args.gammadot)
-phi_gdot = mct.correlator (kernel = shear_model, maxiter=1000000, blocksize=256, accuracy=1e-10, store=True)
+phi_gdot = mct.correlator (model = shear_model, maxiter=1000000, blocksize=256, accuracy=1e-10, store=True)
 correlators.append(phi_gdot)
 
 def output (d, istart, iend, correlator_array, filter=0):
@@ -55,6 +55,10 @@ def output (d, istart, iend, correlator_array):
 f = mct.nonergodicity_parameter (model)
 f.solve()
 print(f.f,f.m)
+
+fs = mct.nonergodicity_parameter (model_s)
+fs.solve()
+print(fs.f,fs.m)
 
 #ev = mct.eigenvalue (f)
 #ev.solve()

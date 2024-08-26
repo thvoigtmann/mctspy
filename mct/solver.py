@@ -2,7 +2,7 @@ import numpy as np
 
 from numba import njit
 
-from .__util__ import void, model_base
+from .__util__ import model_base
 
 
 @njit(cache=True)
@@ -57,7 +57,7 @@ def _solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, acc
 class correlator (object):
     def __init__ (self, blocksize=256, h=1e-9, blocks=60,
                   maxiter=10000, accuracy=1e-9, store=False,
-                  nu=1.0, kernel = model_base, base = None):
+                  nu=1.0, model = model_base, base = None):
         if base is None:
             self.h0 = h
             self.blocks = blocks
@@ -70,7 +70,7 @@ class correlator (object):
             self.blocksize = base.blocksize
             self.base = base
         self.h = self.h0
-        self.mdimen = len(kernel)
+        self.mdimen = len(model)
         self.phi_ = np.zeros((self.blocksize,self.mdimen))
         self.m_ = np.zeros((self.blocksize,self.mdimen))
         self.dPhi_ = np.zeros((self.halfblocksize+1,self.mdimen))
@@ -85,10 +85,8 @@ class correlator (object):
         self.accuracy = accuracy
 
         self.nu = nu
-        self.jit_kernel = kernel.get_kernel(self.phi_[0],0,0.)
-
-    def phi_addr (self):
-        return void(self.phi_)
+        self.jit_kernel = model.get_kernel(self.phi_[0],0,0.0)
+        model.set_base(self.phi_)
 
     def initial_values (self, imax=50):
         iend = imax
@@ -96,7 +94,6 @@ class correlator (object):
         for i in range(iend):
              t = i*self.h0
              self.phi_[i] = np.ones(self.mdimen) - t/self.nu
-             #self.m[i] = self.kernel (self.phi[i], i, t)
              self.m_[i] = self.jit_kernel (self.phi_[i], i, t)
         for i in range(1,iend):
              self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
