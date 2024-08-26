@@ -32,49 +32,41 @@ class model_base (object):
     def cache (self):
         if 'base' in dir(self): return False
         return True
-    def get_kernel (self, phi, i, t):
+    def get_kernel (self, m, phi, i, t):
         if not self.cache() or not '__m__' in dir(self):
-            self.__m__ = self.make_kernel(phi,i,t)
+            self.__m__ = self.make_kernel(m,phi,i,t)
         return self.__m__
-    def get_dm (self, phi, dphi):
+    def get_dm (self, m, phi, dphi):
         if not self.cache() or not '__dm__' in dir(self):
-            self.__dm__ = self.make_dm(phi,dphi)
+            self.__dm__ = self.make_dm(m,phi,dphi)
         return self.__dm__
-    def get_dmhat (self, f, ehat):
+    def get_dmhat (self, m, f, ehat):
         if not self.cache() or not '__dmhat__' in dir(self):
-            self.__dmhat__ = self.make_dmhat(f,ehat)
+            self.__dmhat__ = self.make_dmhat(m,f,ehat)
         return self.__dmhat__
-    def get_dm2 (self, phi, dphi):
+    def get_dm2 (self, m, phi, dphi):
         if not self.cache() or not '__dm2__' in dir(self):
-            self.__dm2__ = self.make_dm2(phi,dphi)
+            self.__dm2__ = self.make_dm2(m,phi,dphi)
         return self.__dm2__
 
     def make_kernel (self, phi, i, t):
-        M = len(self)
         @nb.njit
-        def dummy(phi, i, t):
-            return np.zeros(M)
+        def dummy(m, phi, i, t):
+            return
         return dummy
-    def make_dm (self, phi, dphi):
-        M = len(self)
+    def make_dm (self, m, phi, dphi):
         @nb.njit
-        def dummy(phi, dphi):
-            return np.zeros(M)
+        def dummy(m, phi, dphi):
+            return
         return dummy
-    def make_dmhat(self, f, ehat):
-        M = len(self)
+    def make_dmhat(self, m, f, ehat):
         @nb.njit
-        def dummy(f, ehat):
-            return np.zeros(M)
+        def dummy(m, f, ehat):
+            return
         return dummy
-    def make_dm2 (self, phi, dphi):
-        M = len(self)
+    def make_dm2 (self, m, phi, dphi):
         @nb.njit
-        def dummy(phi, dphi):
-            return np.zeros(M)
+        def dummy(m, phi, dphi):
+            return
         return dummy
 
-
-def solver_base(object):
-    def phi_addr(self):
-        return None

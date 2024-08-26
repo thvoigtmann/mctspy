@@ -13,8 +13,6 @@ parser.add_argument ('-v2',metavar='v2',help='vertex v2 of F12 model',
                      type=float, default=3.95)
 parser.add_argument ('-vs',metavar='vs',help='vertex vs of Sjoegren model',
                      type=float, default=15.0)
-parser.add_argument ('-v3',metavar='v3',help='vertex v3 of BK model',
-                     type=float, default=45.0)
 parser.add_argument ('-gammadot',metavar='gdot',help='shear rate',
                      type=float, default=1e-4)
 args = parser.parse_args()

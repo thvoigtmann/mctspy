@@ -45,7 +45,7 @@ def _solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, acc
         newphi = phi[i-1]
         while (not converged and iterations < maxiter):
             phi[i] = newphi
-            m[i] = kernel (phi[i], i, h*i)
+            kernel (m[i], phi[i], i, h*i)
             newphi = B*m[i] - C
             iterations += 1
             if np.isclose (newphi, phi[i],
@@ -85,7 +85,7 @@ class correlator (object):
         self.accuracy = accuracy
 
         self.nu = nu
-        self.jit_kernel = model.get_kernel(self.phi_[0],0,0.0)
+        self.jit_kernel = model.get_kernel(self.m_[0],self.phi_[0],0,0.0)
         model.set_base(self.phi_)
 
     def initial_values (self, imax=50):
@@ -94,7 +94,7 @@ class correlator (object):
         for i in range(iend):
              t = i*self.h0
              self.phi_[i] = np.ones(self.mdimen) - t/self.nu
-             self.m_[i] = self.jit_kernel (self.phi_[i], i, t)
+             self.jit_kernel (self.m_[i], self.phi_[i], i, t)
         for i in range(1,iend):
              self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
              self.dM_[i] = 0.5 * (self.m_[i-1] + self.m_[i])
@@ -149,7 +149,7 @@ def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter,
         C += -6.0
         C = C/A
 
-        m[i] = kernel (None, i, h*i)
+        kernel (m[i], None, i, h*i)
         phi[i] = - C
 
 
@@ -161,7 +161,7 @@ class mean_squared_displacement (correlator):
         for i in range(iend):
             t = i*self.h0
             self.phi_[i] = np.ones(self.mdimen)*6.*t/self.nu
-            self.m_[i] = self.jit_kernel (None, i, t)
+            self.jit_kernel (self.m_[i], None, i, t)
         for i in range(1,iend):
             self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
             self.dM_[i] = 0.5 * (self.m_[i-1] + self.m_[i])

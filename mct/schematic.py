@@ -9,16 +9,12 @@ class schematic (model_base):
         self.M = M
     def __len__ (self):
         return self.M
-    def make_kernel (self, phi, i, t):
+    def make_kernel (self, m, phi, i, t):
         F = self.func
         @njit
-        def ker(phi, i, t):
-            return F(phi)
+        def ker(m, phi, i, t):
+            m = F(phi)
         return ker
-
-@njit
-def f12kernel(phi,v1,v2):
-    return v1*phi+v2*phi*phi
 
 class f12model (model_base):
     def __init__ (self, v1, v2):
@@ -26,32 +22,32 @@ class f12model (model_base):
         self.v2 = v2
     def __len__ (self):
         return 1
-    def make_kernel (self, phi, i, t):
+    def make_kernel (self, m, phi, i, t):
         v1 = self.v1
         v2 = self.v2
         @njit
-        def m(phi, i, t):
-            return  v1*phi + v2*phi*phi
-        return m
-    def make_dm (self, phi, dphi):
+        def ker(m, phi, i, t):
+            m[:] = v1*phi + v2*phi*phi
+        return ker
+    def make_dm (self, m, phi, dphi):
         v1 = self.v1
         v2 = self.v2
         @njit
-        def dm(phi, dphi):
-            return v1 * dphi + 2*v2 * phi*dphi
+        def dm(m, phi, dphi):
+            m[:] = (1-phi) * (v1 * dphi + 2*v2 * phi*dphi) * (1-phi)
         return dm
-    def make_dmhat (self, f, ehat):
+    def make_dmhat (self, m, f, ehat):
         v1 = self.v1
         v2 = self.v2
         @njit
-        def dmhat(f, ehat):
-            return (1-f)*(v1*ehat + 2*v2 * f*ehat)*(1-f)
+        def dmhat(m, f, ehat):
+            m[:] = (1-f)*(v1*ehat + 2*v2 * f*ehat)*(1-f)
         return dmhat
-    def make_dm2 (self, phi, dphi):
+    def make_dm2 (self, m, phi, dphi):
         v2 = self.v2
         @njit
-        def dm2(phi, dphi):
-            return v2 * dphi*dphi
+        def dm2(m, phi, dphi):
+            m[:] = (1-phi) * v2 * dphi*dphi * (1-phi)
         return dm2
 
 class f12gammadot_model (f12model):
@@ -59,15 +55,15 @@ class f12gammadot_model (f12model):
         f12model.__init__(self, v1, v2)
         self.gammadot = gammadot
         self.gammac = gammac
-    def make_kernel (self, phi, i, t):
+    def make_kernel (self, m, phi, i, t):
         v1 = self.v1
         v2 = self.v2
         gammadot = self.gammadot
         gammac = self.gammac
         @njit
-        def ker(phi, i, t):
+        def ker(m, phi, i, t):
             gt = gammadot*t / gammac
-            return (v1*phi + v2*phi*phi) * 1.0/(1.0 + gt*gt)
+            m[:] = (v1*phi + v2*phi*phi) * 1.0/(1.0 + gt*gt)
         return ker
 
 class sjoegren_model (model_base):
@@ -76,13 +72,13 @@ class sjoegren_model (model_base):
         self.base = base_model
     def __len__ (self):
         return 1
-    def make_kernel (self, phis, i, t):
+    def make_kernel (self, ms, phis, i, t):
         vs = self.vs
         base_phi = self.base.phi
         @njit
-        def ker(phis, i, t):
+        def ker(ms, phis, i, t):
             phi = nparray(base_phi)
-            return vs * phi[i] * phis
+            ms[:] = vs * phi[i] * phis
         return ker
 
 
@@ -93,13 +89,13 @@ class msd_model (model_base):
         self.base = base_model
     def __len__ (self):
         return 1
-    def make_kernel (self, phis, i, t):
+    def make_kernel (self, ms, phis, i, t):
         vs = self.vs
         base_phi = self.base.phi
         @njit
-        def ker(phis, i, t):
+        def ker(ms, phis, i, t):
             phi = nparray(base_phi)
-            return vs * phi[i] * phi[i]
+            ms[:] = vs * phi[i] * phi[i]
         return ker
 
 
@@ -110,19 +106,34 @@ class bosse_krieger_model (model_base):
         self.v3 = v3
     def __len__ (self):
         return 2
-    def m (self, phi=np.zeros(2), i=0, t=0):
-        return np.array([self.v1 * phi[0]*phi[0] + self.v2 * phi[1]*phi[1],
-                         self.v3 * phi[0]*phi[1]])
-    def dm (self, phi, dphi):
-        return np.array([2.*self.v1*phi[0]*dphi[0]+2.*self.v2*phi[1]*dphi[1],
-                         self.v3 * (phi[0]*dphi[1] + phi[1]*dphi[0])])
-    def dmhat (self, f, ehat):
-        return np.array([(1-f[0])*2.*self.v1*f[0]*ehat[0]*(1-f[0])
-                         +(1-f[1])*self.v3*f[1]*ehat[1]*(1-f[1]),
-                         (1-f[0])*2.*self.v2*f[1]*ehat[0]*(1-f[0])
-                         +(1-f[1])*self.v3*f[0]*ehat[1]*(1-f[1])])
-    def dm2 (self, phi, dphi):
-        return np.array([self.v1*dphi[0]*dphi[0]+self.v2*dphi[1]*dphi[1],
-                         self.v3 * dphi[0]*dphi[1]])
-
+    def make_kernel (self, m, phi, i, t):
+        v1, v2, v3 = self.v1, self.v2, self.v3
+        @njit
+        def ker (m, phi, i, t):
+            m[0] = v1 * phi[0]*phi[0] + v2 * phi[1]*phi[1]
+            m[1] = v3 * phi[0]*phi[1]
+        return ker
+    def make_dm (self, m, phi, dphi):
+        v1, v2, v3 = self.v1, self.v2, self.v3
+        @njit
+        def dm (m, phi, dphi):
+            m[0] = (1-phi[0]) * (2.*v1*phi[0]*dphi[0]+2.*v2*phi[1]*dphi[1]) * (1-phi[0])
+            m[1] = (1-phi[1]) * v3 * (phi[0]*dphi[1] + phi[1]*dphi[0]) * (1-phi[1])
+        return dm
+    def make_dmhat (self, m, f, ehat):
+        v1, v2, v3 = self.v1, self.v2, self.v3
+        @njit
+        def dmhat (m, f, ehat):
+            m[0] = ((1-f[0])*2.*v1*f[0]*ehat[0]*(1-f[0]) \
+                   +(1-f[1])*v3*f[1]*ehat[1]*(1-f[1]))
+            m[1] = ((1-f[0])*2.*v2*f[1]*ehat[0]*(1-f[0]) \
+                   +(1-f[1])*v3*f[0]*ehat[1]*(1-f[1]))
+        return dmhat
+    def make_dm2 (self, m, phi, dphi):
+        v1, v2, v3 = self.v1, self.v2, self.v3
+        @njit
+        def dm2 (m, phi, dphi):
+            m[0] = (1-phi[0])*(v1*dphi[0]*dphi[0]+v2*dphi[1]*dphi[1])*(1-phi[0])
+            m[1] = (1-phi[1])*v3 * dphi[0]*dphi[1] * (1-phi[1])
+        return dm2
 
