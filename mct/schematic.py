@@ -1,7 +1,7 @@
 from numba import njit, carray
-from .__util__ import nparray
+from .__util__ import nparray, model_base
 
-class schematic (object):
+class schematic (model_base):
     def __init__ (self, func, M=1):
         self.func = func
         self.M = M
@@ -21,61 +21,57 @@ class schematic (object):
     def m (self, phi=0, i=0, t=0):
         return self.func(phi)
 
-class f12model (object):
+class f12model (model_base):
     def __init__ (self, v1, v2):
         self.v1 = v1
         self.v2 = v2
     def __len__ (self):
         return 1
-    def make_kernel (self, phi, i=None, t=0.0):
+    def make_kernel (self, phi, i=0, t=0.0):
         v1 = self.v1
         v2 = self.v2
-        if i is None:
-            @njit
-            def ker(phi):
-                return  v1*phi + v2*phi*phi
-        else:
-            @njit
-            def ker(phi, i, t):
-                return  v1*phi + v2*phi*phi
-        return ker
-    def m (self, phi=0, i=0, t=0):
-        return self.v1 * phi + self.v2 * phi*phi
-    def dm (self, phi, dphi):
-        return self.v1 * dphi + 2 * self.v2 * phi*dphi
-    def dmhat (self, f, ehat):
-        return (1-f)*self.dm(f,ehat)*(1-f)
-    def dm2 (self, phi, dphi):
-        return self.v2 * dphi*dphi
+        @njit
+        def m(phi, i, t):
+            return  v1*phi + v2*phi*phi
+        return m
+    def make_dm (self, phi, dphi):
+        v1 = self.v1
+        v2 = self.v2
+        @njit
+        def dm(phi, dphi):
+            return v1 * dphi + 2*v2 * phi*dphi
+        return dm
+    def make_dmhat (self, f, ehat):
+        v1 = self.v1
+        v2 = self.v2
+        @njit
+        def dmhat(f, ehat):
+            return (1-f)*(v1*ehat + 2*v2 * f*ehat)*(1-f)
+        return dmhat
+    def make_dm2 (self, phi, dphi):
+        v2 = self.v2
+        @njit
+        def dm2(phi, dphi):
+            return v2 * dphi*dphi
+        return dm2
 
-class f12gammadot_model (object):
+class f12gammadot_model (f12model):
     def __init__ (self, v1, v2, gammadot=0.0, gammac=0.1):
-        self.v1 = v1
-        self.v2 = v2
+        f12model.__init__(v1, v2)
         self.gammadot = gammadot
         self.gammac = gammac
-    def __len__ (self):
-        return 1
-    def make_kernel (self, phi, i=None, t=0.0):
+    def make_kernel (self, phi, i=0, t=0.0):
         v1 = self.v1
         v2 = self.v2
         gammadot = self.gammadot
         gammac = self.gammac
-        if i is None:
-            @njit
-            def ker(phi):
-                return (v1*phi + v2*phi*phi)
-        else:
-            @njit
-            def ker(phi, i, t):
-                gt = gammadot*t / gammac
-                return (v1*phi + v2*phi*phi) * 1.0/(1.0 + gt*gt)
+        @njit
+        def ker(phi, i, t):
+            gt = gammadot*t / gammac
+            return (v1*phi + v2*phi*phi) * 1.0/(1.0 + gt*gt)
         return ker
-    def m (self, phi, i, t):
-        gt = self.gammadot * t / self.gammac
-        return (self.v1 * phi + self.v2 * phi*phi) * 1.0/(1.0 + gt*gt)
 
-class sjoegren_model (object):
+class sjoegren_model (model_base):
     def __init__ (self, vs, base_correlator):
         self.vs = vs
         #self.base = base_correlator
@@ -101,7 +97,7 @@ class sjoegren_model (object):
 
 
 
-class msd_model (object):
+class msd_model (model_base):
     def __init__ (self, vs, base_correlator):
         self.vs = vs
         #self.base = base_correlator

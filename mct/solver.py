@@ -2,7 +2,7 @@ import numpy as np
 
 from numba import njit
 
-from .__util__ import void
+from .__util__ import void, model_base
 
 
 @njit(cache=True)
@@ -54,16 +54,10 @@ def _solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, acc
                 phi[i] = newphi
 
 
-class dummy_model (object):
-    def __len__ (self):
-        return 1
-    def m (self, phi=0, i=0, t=0):
-        return 0.0
-
 class correlator (object):
     def __init__ (self, blocksize=256, h=1e-9, blocks=60,
                   maxiter=10000, accuracy=1e-9, store=False,
-                  nu=1.0, kernel = dummy_model, base = None):
+                  nu=1.0, kernel = model_base, base = None):
         if base is None:
             self.h0 = h
             self.blocks = blocks
@@ -91,14 +85,7 @@ class correlator (object):
         self.accuracy = accuracy
 
         self.nu = nu
-        self.kernel = kernel.m
-        #def kernel_factory(phi, i, t):
-        #    @njit
-        #    def ker(phi, i, t):
-        #        return kernel.make_m(phi, i, t)
-        #    return ker
-        #self.jit_kernel = kernel_factory(self.phi[0],0,0.)
-        self.jit_kernel = kernel.make_kernel(self.phi_[0],0,0.)
+        self.jit_kernel = kernel.get_kernel(self.phi_[0],0,0.)
 
     def phi_addr (self):
         return void(self.phi_)
@@ -188,33 +175,4 @@ class mean_squared_displacement (correlator):
     def solve_block (self, istart, iend):
         _msd_solve_block (istart, iend, self.h, self.nu/self.h, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy)
 
-
-
-@njit
-def _fsolve (f, m, kernel, M, accuracy, maxiter):
-    iterations = 0
-    converged = False
-    newf = np.ones(M)
-    while (not converged and iterations < maxiter):
-        iterations+=1
-        f = newf
-        m = kernel (f)
-        newf = m / (1.0+m)
-        if np.isclose (newf, f, rtol=accuracy, atol=0.0).all():
-            converged = True
-            f = newf
-        if not iterations%100: print("iter",iterations,f[0])
-    return f,m
-
-class nonergodicity_parameter (object):
-    def __init__ (self, model, accuracy=1e-12, maxiter=1000000):
-        self.model = model
-        self.accuracy = accuracy
-        self.maxiter = maxiter
-        self.f = np.zeros(len(model))
-        self.m = np.zeros(len(model))
-        self.jit_kernel = model.make_kernel(self.f)
-
-    def solve (self):
-        self.f,self.m = _fsolve(self.f, self.m, self.jit_kernel, len(self.model), self.accuracy, self.maxiter)
 
