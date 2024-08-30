@@ -47,7 +47,7 @@ class f12model (model_base):
         v2 = self.v2
         @njit
         def dm2(m, phi, dphi):
-            m[:] = (1-phi) * v2 * dphi*dphi * (1-phi)
+            m[:] = (1-phi)**2 * v2 * dphi*dphi * (1-phi)**2
         return dm2
 
 class f12gammadot_model (f12model):
@@ -117,23 +117,25 @@ class bosse_krieger_model (model_base):
         v1, v2, v3 = self.v1, self.v2, self.v3
         @njit
         def dm (m, phi, dphi):
-            m[0] = (1-phi[0]) * (2.*v1*phi[0]*dphi[0]+2.*v2*phi[1]*dphi[1]) * (1-phi[0])
-            m[1] = (1-phi[1]) * v3 * (phi[0]*dphi[1] + phi[1]*dphi[0]) * (1-phi[1])
+            dp = (1-phi)**2 * dphi
+            m[0] = 2.*v1*phi[0]*dp[0] + 2.*v2*phi[1]*dp[1]
+            m[1] = v3 * (phi[0]*dp[1] + phi[1]*dp[0])
         return dm
     def make_dmhat (self, m, f, ehat):
         v1, v2, v3 = self.v1, self.v2, self.v3
         @njit
         def dmhat (m, f, ehat):
-            m[0] = ((1-f[0])*2.*v1*f[0]*ehat[0]*(1-f[0]) \
-                   +(1-f[1])*v3*f[1]*ehat[1]*(1-f[1]))
-            m[1] = ((1-f[0])*2.*v2*f[1]*ehat[0]*(1-f[0]) \
-                   +(1-f[1])*v3*f[0]*ehat[1]*(1-f[1]))
+            m[0] = 2.*v1*f[0]*ehat[0]*(1-f[0])**2 \
+                   +v3*f[1]*ehat[1]*(1-f[0])**2
+            m[1] = 2.*v2*f[1]*ehat[0]*(1-f[1])**2 \
+                   +v3*f[0]*ehat[1]*(1-f[1])**2
         return dmhat
     def make_dm2 (self, m, phi, dphi):
         v1, v2, v3 = self.v1, self.v2, self.v3
         @njit
         def dm2 (m, phi, dphi):
-            m[0] = (1-phi[0])*(v1*dphi[0]*dphi[0]+v2*dphi[1]*dphi[1])*(1-phi[0])
-            m[1] = (1-phi[1])*v3 * dphi[0]*dphi[1] * (1-phi[1])
+            dp = (1-phi)**2 * dphi
+            m[0] = v1*dp[0]*dp[0]+v2*dp[1]*dp[1]
+            m[1] = v3 * dp[0]*dp[1]
         return dm2
 

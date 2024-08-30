@@ -46,7 +46,7 @@ print ("# eigenvalue = {:f} (check ehat: {:f})".format(ev.eval,ev.eval2))
 print ("# e = {}".format(ev.e))
 print ("# ehat = {}".format(ev.ehat))
 print ("# (ehat,e) = {}".format(np.dot(ev.ehat,ev.e)))
-print ("# (ehat,e*e/(1-f)) = {}".format(np.dot(ev.ehat,ev.e*ev.e/(1-f.f[0]))))
+print ("# (ehat,e*e*(1-f)) = {}".format(np.dot(ev.ehat,ev.e*ev.e*(1-f.f[0]))))
 print ("# lambda = {:f}".format(ev.lam))
 
 

@@ -17,7 +17,7 @@ def _fsolve (f, m, W, phi0, kernel, M, accuracy, maxiter):
         if np.isclose (newf, f[0], rtol=accuracy, atol=0.0).all():
             converged = True
             f[0] = newf
-        if not iterations%100: print("iter",iterations,f[0])
+        if not iterations%100: print("iter",iterations)
 
 class nonergodicity_parameter (object):
     def __init__ (self, model, accuracy=1e-12, maxiter=1000000):
@@ -72,9 +72,11 @@ class eigenvalue (object):
         self.nep = nep
         self.accuracy = accuracy
         self.maxiter = maxiter
-        self.dm = self.nep.model.get_dm(self.nep.m,self.nep.f,self.nep.f)
-        self.dmhat = self.nep.model.get_dmhat(self.nep.m,self.nep.f,self.nep.f)
-        self.dm2 = self.nep.model.get_dm2(self.nep.m,self.nep.f,self.nep.f)
+        nep.model.set_C (self.nep.f[0])
+        f, m = self.nep.f[0], self.nep.m[0]
+        self.dm = self.nep.model.get_dm(m,f,f)
+        self.dmhat = self.nep.model.get_dmhat(m,f,f)
+        self.dm2 = self.nep.model.get_dm2(m,f,f)
 
     def solve (self):
         f = self.nep.f[0]
@@ -84,15 +86,16 @@ class eigenvalue (object):
         self.eval = _esolve(self.e, self.dm, f, len(model), self.maxiter, self.accuracy)
         self.eval2 = _ehatsolve(self.ehat, self.dmhat, f, len(model), self.maxiter, self.accuracy)
         if self.eval > 0:
-            print("U",self.e,self.ehat)
-            nl = np.dot(self.ehat, self.e)
-            nr = np.dot(self.ehat, self.e*self.e / (1-f))
+            #print("U",self.e,self.ehat)
+            dq = model.dq()
+            nl = np.dot(dq * self.ehat, self.e)
+            nr = np.dot(dq * self.ehat, self.e*self.e * (1-f))
             self.e = self.e * nl/nr
             self.ehat = self.ehat * nr/(nl*nl)
             #self.lam = np.dot(self.ehat, (1-f)*self.dm2(f,self.e)*(1-f))
             C = np.zeros(len(model))
             self.dm2(C,f,self.e)
-            self.lam = np.dot(self.ehat, C)
+            self.lam = np.dot(dq * self.ehat, C)
             #nr = self.ehat * self.e*self.e / (1-f)
             #print ("nr {}".format(nr))
             #self.lam = self.lam / nr
