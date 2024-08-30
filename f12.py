@@ -58,12 +58,12 @@ fs = mct.nonergodicity_parameter (model_s)
 fs.solve()
 print(fs.f,fs.m)
 
-#ev = mct.eigenvalue (f)
-#ev.solve()
-#print ("# eigenvalue = {:f} (check ehat: {:f})".format(ev.eval,ev.eval2))
-#print ("# e = {}".format(ev.e))
-#print ("# ehat = {}".format(ev.ehat))
-#print ("# lambda = {:f}".format(ev.lam))
+ev = mct.eigenvalue (f)
+ev.solve()
+print ("# eigenvalue = {:f} (check ehat: {:f})".format(ev.eval,ev.eval2))
+print ("# e = {}".format(ev.e))
+print ("# ehat = {}".format(ev.ehat))
+print ("# lambda = {:f}".format(ev.lam))
 
 
 phi.solve_all(correlators, callback=output)
