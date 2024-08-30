@@ -1,7 +1,7 @@
 import numpy as np
 
 from numba import njit
-from .__util__ import model_base
+from .__util__ import model_base, void, nparray
 
 class simple_liquid_model (model_base):
     def __init__ (self, Sq, q, D0=1.0):
@@ -17,6 +17,8 @@ class simple_liquid_model (model_base):
         return self.q*self.q
     def Bq (self):
         return self.sq/self.D0
+    def dq (self):
+        return np.diff(self.q, append=2*self.q[-1]-self.q[-2])
     def __init_vertices__ (self):
         pre = 1./(32.*np.pi**2) * self.rho
         q = self.q
@@ -50,7 +52,7 @@ class simple_liquid_model (model_base):
     def make_kernel (self, m, phi, i, t):
         a, b, apre = self.a, self.b, self.apre
         M = self.M
-        dq = np.diff(self.q, append=2*self.q[-1]-self.q[-2])
+        dq = self.dq()
         @njit
         def ker (m, phi, i, t):
             for qi in range(M):
@@ -72,3 +74,72 @@ class simple_liquid_model (model_base):
                         mq += a[n,ki] * apre[n] * zqk * phi[ki]
                 m[qi] = mq * dq[qi]**2
         return ker
+    def set_C (self, f):
+        a, b, apre = self.a, self.b, self.apre
+        M = self.M
+        C = np.zeros((M,M))
+        @njit
+        def calc_C (C, f):
+            for qi in range(M):
+                for n in range(9):
+                    pi, ki = qi, 0
+                    zqk = b[n,qi,qi] * f[pi]
+                    C[qi,ki] += a[n,0] * zqk * (1-f[ki])**2
+                    for ki in range(1, M):
+                        if ki <= qi:
+                            pi = qi - ki
+                            zqk += b[n,qi,pi] * f[pi]
+                        else:
+                            pi = ki - qi - 1
+                            zqk -= b[n,qi,pi] * f[pi]
+                        pi = qi + ki
+                        if pi < M:
+                            zqk += b[n,qi,pi] * f[pi]
+                        C[qi,ki] += a[n,ki] * zqk * (1-f[ki])**2
+        calc_C (C, f)
+        self.__C__ = C
+    def make_dm (self, m, phi, dphi):
+        M = self.M
+        Cqk = void(self.__C__)
+        q = self.q
+        dq = self.dq()
+        @njit
+        def dm(m, phi, dphi):
+            V = nparray(Cqk)
+            m[:] = 2 * dq**2/q**2 * np.dot(V,dphi)
+        return dm
+    def make_dmhat (self, m, f, ehat):
+        M = self.M
+        Cqk = void(self.__C__)
+        q = self.q
+        dq = self.dq()
+        @njit
+        def dmhat(m, f, ehat):
+            V = nparray(Cqk)
+            m[:] = np.dot(ehat/q**2, V) * 2 * dq**2
+        return dmhat
+    def make_dm2 (self, m, phi, dphi):
+        M = self.M
+        a, b, apre = self.a, self.b, self.apre
+        q = self.q
+        dq = self.dq()
+        def dm2 (m, phi, dphi):
+            for qi in range(M):
+                mq = 0.
+                for n in range(6):
+                    pi, ki = qi, 0
+                    zqk = b[n,qi,qi] * dphi[pi] * (1-phi[pi])**2
+                    mq += a[n,0] * apre[n] * zqk * dphi[ki] * (1-phi[ki])**2
+                    for ki in range(1, M):
+                        if ki <= qi:
+                            pi = qi - ki
+                            zqk += b[n,qi,pi] * dphi[pi] * (1-phi[pi])**2
+                        else:
+                            pi = ki - qi - 1
+                            zqk -= b[n,qi,pi] * dphi[pi] * (1-phi[pi])**2
+                        pi = qi + ki
+                        if pi < M:
+                            zqk += b[n,qi,pi] * dphi[pi] * (1-phi[pi])**2
+                        mq += a[n,ki] *apre[n]* zqk * dphi[ki] * (1-phi[ki])**2
+                m[qi] = mq * dq[qi]**2 / q[qi]**2
+        return dm2

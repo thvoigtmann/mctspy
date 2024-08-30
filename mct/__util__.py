@@ -66,6 +66,9 @@ class model_base (object):
         def dummy(m, phi, dphi):
             return
         return dummy
+    def set_C (self, f):
+        # can use this to pre-calculate stability matrix before make_dm
+        return
     def make_dmhat(self, m, f, ehat):
         @nb.njit
         def dummy(m, f, ehat):
@@ -77,3 +80,5 @@ class model_base (object):
             return
         return dummy
 
+    def dq (self):
+        return 1.0

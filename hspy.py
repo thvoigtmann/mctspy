@@ -1,7 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
 
 import mct
+
+parser = argparse.ArgumentParser()
+parser.add_argument ('-phi',metavar='phi',help='packing fraction',
+                     type=float, default=0.5)
+args = parser.parse_args()
 
 class hssPY (object):
     def __init__ (self, phi):
@@ -38,14 +44,12 @@ class hssPY (object):
         # bigger than low-q
         return 1.0 / (1.0 - self.phi*6/np.pi * cq_), cq_
 
-sq = hssPY(phi=0.516)
-
-sq.cq(np.array([1]))
+sq = hssPY(phi=args.phi)
 
 qgrid = np.linspace(0.2,39.8,100)
-print (qgrid)
-#plt.plot(qgrid, sq.Sq(qgrid)[0])
-#plt.show()
+
+plt.plot(qgrid, sq.Sq(qgrid)[0])
+plt.show()
 
 model = mct.simple_liquid_model (sq, qgrid)
 phi = mct.correlator (model = model, store = True, blocks=60, maxiter=100)
@@ -53,12 +57,15 @@ correlators = [phi]
 
 f = mct.nonergodicity_parameter (model = model)
 f.solve()
-print (dir(f))
-print (f.f)
-print (f.f[0])
-print (qgrid)
-print ("plot")
 plt.plot(qgrid, f.f[0])
+plt.show()
+
+ev = mct.eigenvalue (f)
+ev.solve()
+print ("eigenvalue",ev.eval,ev.eval2)
+print ("lambda",ev.lam)
+plt.plot(qgrid,ev.e*(1-f.f[0])**2)
+plt.plot(qgrid,ev.ehat)
 plt.show()
 quit()
 

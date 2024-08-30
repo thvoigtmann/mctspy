@@ -86,7 +86,6 @@ class eigenvalue (object):
         self.eval = _esolve(self.e, self.dm, f, len(model), self.maxiter, self.accuracy)
         self.eval2 = _ehatsolve(self.ehat, self.dmhat, f, len(model), self.maxiter, self.accuracy)
         if self.eval > 0:
-            #print("U",self.e,self.ehat)
             dq = model.dq()
             nl = np.dot(dq * self.ehat, self.e)
             nr = np.dot(dq * self.ehat, self.e*self.e * (1-f))
@@ -96,9 +95,6 @@ class eigenvalue (object):
             C = np.zeros(len(model))
             self.dm2(C,f,self.e)
             self.lam = np.dot(dq * self.ehat, C)
-            #nr = self.ehat * self.e*self.e / (1-f)
-            #print ("nr {}".format(nr))
-            #self.lam = self.lam / nr
         else:
             self.lam = 0.0
 
