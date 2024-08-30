@@ -5,18 +5,18 @@ from numba import njit
 from .__util__ import void
 
 @njit
-def _fsolve (f, m, kernel, M, accuracy, maxiter):
+def _fsolve (f, m, W, phi0, kernel, M, accuracy, maxiter):
     iterations = 0
     converged = False
-    newf = np.ones((1,M))
+    newf = phi0
     while (not converged and iterations < maxiter):
         iterations+=1
-        f[:] = newf
+        f[0] = newf
         kernel (m[0], f[0], 0, 0.)
-        newf = m / (1.0+m)
-        if np.isclose (newf, f, rtol=accuracy, atol=0.0).all():
+        newf = m[0] / (W+m[0]) * phi0
+        if np.isclose (newf, f[0], rtol=accuracy, atol=0.0).all():
             converged = True
-            f[:] = newf
+            f[0] = newf
         if not iterations%100: print("iter",iterations,f[0])
 
 class nonergodicity_parameter (object):
@@ -30,10 +30,7 @@ class nonergodicity_parameter (object):
         self.model.set_base(self.f)
 
     def solve (self):
-        print (void(self.f))
-        print (self.f.shape)
-        _fsolve(self.f, self.m, self.jit_kernel, len(self.model), self.accuracy, self.maxiter)
-        print (void(self.f))
+        _fsolve(self.f, self.m, self.model.Wq(), self.model.phi0(), self.jit_kernel, len(self.model), self.accuracy, self.maxiter)
 
 
 @njit
