@@ -26,12 +26,19 @@ def void(nparray):
 class model_base (object):
     def __len__ (self):
         return 1
+    def phi0 (self):
+        return np.ones(len(self))
+    def Wq (self):
+        return np.ones(len(self))
+    def Bq (self):
+        return np.ones(len(self))
+
     def set_base (self, array):
         self.phi = void(array)
-
     def cache (self):
         if 'base' in dir(self): return False
         return True
+
     def get_kernel (self, m, phi, i, t):
         if not self.cache() or not '__m__' in dir(self):
             self.__m__ = self.make_kernel(m,phi,i,t)
