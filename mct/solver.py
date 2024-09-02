@@ -85,8 +85,8 @@ class correlator (object):
         self.accuracy = accuracy
 
         self.model = model
-        self.jit_kernel = model.get_kernel(self.m_[0],self.phi_[0],0,0.0)
         model.set_base(self.phi_)
+        self.jit_kernel = model.get_kernel(self.m_[0],self.phi_[0],0,0.0)
 
     def initial_values (self, imax=50):
         iend = imax

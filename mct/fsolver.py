@@ -26,8 +26,8 @@ class nonergodicity_parameter (object):
         self.maxiter = maxiter
         self.f = np.zeros((1,len(model)))
         self.m = np.zeros((1,len(model)))
-        self.jit_kernel = model.get_kernel(self.m,self.f,0,0.0)
         self.model.set_base(self.f)
+        self.jit_kernel = model.get_kernel(self.m,self.f,0,0.0)
 
     def solve (self):
         _fsolve(self.f, self.m, self.model.Wq(), self.model.phi0(), self.jit_kernel, len(self.model), self.accuracy, self.maxiter)
