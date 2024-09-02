@@ -52,31 +52,46 @@ plt.plot(qgrid, sq.Sq(qgrid)[0])
 plt.show()
 
 model = mct.simple_liquid_model (sq, qgrid)
-phi = mct.correlator (model = model, store = True, blocks=60, maxiter=100)
+phi = mct.correlator (model = model, store = True, blocks=50)
 correlators = [phi]
 
-f = mct.nonergodicity_parameter (model = model)
-f.solve()
-plt.plot(qgrid, f.f[0])
-plt.show()
+model_s = mct.tagged_particle_model (model, cs=sq)
+phi_s = mct.correlator (model = model_s, base=phi, store = True)
+correlators.append(phi_s)
 
-ev = mct.eigenvalue (f)
-ev.solve()
-print ("eigenvalue",ev.eval,ev.eval2)
-print ("lambda",ev.lam)
-plt.plot(qgrid,ev.e*(1-f.f[0])**2)
-plt.plot(qgrid,ev.ehat)
-plt.show()
-quit()
+if False:
+    f = mct.nonergodicity_parameter (model = model)
+    f.solve()
+    plt.plot(qgrid, f.f[0])
+    plt.show()
+    
+    ev = mct.eigenvalue (f)
+    ev.solve()
+    print ("eigenvalue",ev.eval,ev.eval2)
+    print ("lambda",ev.lam)
+    plt.plot(qgrid,ev.e*(1-f.f[0])**2)
+    plt.plot(qgrid,ev.ehat)
+    plt.show()
 
 def output (d, istart, iend, correlator_array):
     print ("block",d,"\r",end='')
 
 phi.solve_all(correlators, callback=output)
 
-qi = np.nonzero(np.isclose(qgrid,7.4))[0][0]
+qval = 7.4
+qi = np.nonzero(np.isclose(qgrid,qval))[0][0]
 print(phi.phi.shape)
 plt.plot(phi.t, phi.phi[:,qi])
+plt.plot(phi_s.t, phi_s.phi[:,qi])
+plt.plot(phi.t, np.exp(-qval**2*phi.t),color='black',linestyle='dashed')
 #plt.plot(phi.t, phi.m[:,qi])
 plt.xscale('log')
+plt.show()
+
+for corr in [phi,phi_s]:
+    tau_indices = corr.phi.shape[0] - np.sum(corr.phi<=0.1,axis=0)
+    tau_indices[tau_indices>=corr.phi.shape[0]] = -1
+    tau = corr.t[tau_indices]
+    plt.plot(model.q,tau)
+plt.yscale('log')
 plt.show()

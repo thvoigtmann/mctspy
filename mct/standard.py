@@ -143,3 +143,80 @@ class simple_liquid_model (model_base):
                         mq += a[n,ki] *apre[n]* zqk * dphi[ki] * (1-phi[ki])**2
                 m[qi] = mq * dq[qi]**2 / q[qi]**2
         return dm2
+
+class tagged_particle_model (model_base):
+    def __init__ (self, base_model, cs, D0s=1.0):
+        self.base = base_model
+        self.q = base_model.q
+        self.cs = cs.cq(self.q)
+        self.M = self.q.shape[0]
+        self.__init_vertices__()
+        self.D0 = D0s
+    def __len__ (self):
+        return self.M
+    def Wq (self):
+        return self.q*self.q
+    def Bq (self):
+        return np.ones(self.M)/self.D0
+    def __init_vertices__ (self):
+        pre = (1./(4.*np.pi))**2. * self.base.rho
+        q = self.q
+        sp = self.base.sq
+        csp = self.cs
+        self.a = np.zeros((3,self.M))
+        self.b = np.zeros((3,self.M,self.M))
+        self.a[0] = q**4 * q
+        self.a[1] = - 2 * q**2 * q
+        self.a[2] = q
+        q_, p_ = np.meshgrid(q,q,indexing='ij')
+        pq = p_/q_**3 * pre * sp * csp**2
+        qsq_psq = q_**2 - p_**2
+        self.b[0] = pq
+        self.b[1] = pq * qsq_psq
+        self.b[2] = pq * qsq_psq**2
+    def set_base (self, array):
+        model_base.set_base (self, array)
+        a, b = self.a, self.b
+        V = np.zeros((self.M,self.M))
+        M = self.M
+        @njit
+        def calc_V (V, f):
+            for qi in range(M):
+                for ki in range(M):
+                    V[qi,ki] = 0.
+                for n in range(3):
+                    pi, ki = qi, 0
+                    zqk = b[n,qi,pi] * f[pi]
+                    V[qi,ki] += a[n,ki] * zqk
+                    for ki in range(1, M):
+                        if ki <= qi:
+                            pi = qi - ki
+                            zqk += b[n,qi,pi] * f[pi]
+                        else:
+                            pi = ki - qi - 1
+                            zqk -= b[n,qi,pi] * f[pi]
+                        pi = qi + ki
+                        if pi < M:
+                            zqk += b[n,qi,pi] * f[pi]
+                        V[qi,ki] += a[n,ki] * zqk
+        calc_V (V, array[0])
+        self.__calcV__ = calc_V
+        self.__Vqk__ = V
+    def make_kernel (self, ms, phis, i, t):
+        M = self.M
+        Vqk = void(self.__Vqk__)
+        Vfunc = self.__calcV__
+        base_phi = self.base.phi
+        dq = self.base.dq()
+        self.__i__ = np.zeros(1,dtype=int)
+        __i__ = void(self.__i__)
+        @njit
+        def ker (ms, phis, i, t):
+            last_i = nparray(__i__)
+            V = nparray(Vqk)
+            phi = nparray(base_phi)
+            if last_i[0]==0 or not (i==last_i[0]):
+                Vfunc(V, phi[i])
+                last_i[0] = i
+            ms[:] = dq**2 * np.dot(V,phis)
+        return ker
