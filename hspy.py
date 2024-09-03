@@ -59,6 +59,10 @@ model_s = mct.tagged_particle_model (model, cs=sq)
 phi_s = mct.correlator (model = model_s, base=phi, store = True)
 correlators.append(phi_s)
 
+model_s0 = mct.tagged_particle_q0 (model_s)
+msd = mct.mean_squared_displacement (model = model_s0, base=phi_s, store=True)
+correlators.append(msd)
+
 if False:
     f = mct.nonergodicity_parameter (model = model)
     f.solve()
@@ -78,6 +82,7 @@ def output (d, istart, iend, correlator_array):
 
 phi.solve_all(correlators, callback=output)
 
+
 qval = 7.4
 qi = np.nonzero(np.isclose(qgrid,qval))[0][0]
 print(phi.phi.shape)
@@ -93,5 +98,11 @@ for corr in [phi,phi_s]:
     tau_indices[tau_indices>=corr.phi.shape[0]] = -1
     tau = corr.t[tau_indices]
     plt.plot(model.q,tau)
+plt.yscale('log')
+plt.show()
+
+plt.plot(msd.t, msd.phi[:,0])
+plt.plot(msd.t, 6*msd.t, color='black', linestyle='dashed')
+plt.xscale('log')
 plt.yscale('log')
 plt.show()

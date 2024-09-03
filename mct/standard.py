@@ -220,3 +220,30 @@ class tagged_particle_model (model_base):
                 last_i[0] = i
             ms[:] = dq**2 * np.dot(V,phis)
         return ker
+
+
+class tagged_particle_q0 (model_base):
+    def __init__ (self, base_model):
+        self.base = base_model
+        self.__init_vertices__()
+    def __len__ (self):
+        return 1
+    def __init_vertices__ (self):
+        pre = 1./(6.*np.pi**2) * self.base.base.dq()[0] * self.base.base.rho
+        sk = self.base.base.sq
+        cs = self.base.cs
+        self.V = pre * (self.base.q**2 * cs)**2 * sk
+    def set_base (self, array):
+        model_base.set_base (self, array)
+    def make_kernel (self, ms0, phis0, i, t):
+        M = self.base.M
+        Vk = void(self.V)
+        base_phi_s = self.base.phi
+        base_phi = self.base.base.phi
+        @njit
+        def ker (ms0, phis0, i, t):
+            phi = nparray(base_phi)
+            phi_s = nparray(base_phi_s)
+            V = nparray(Vk)
+            ms0[:] = np.dot(V,phi[i]*phi_s[i])
+        return ker
