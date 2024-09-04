@@ -95,10 +95,10 @@ class correlator (object):
         iend = imax
         if (iend > self.halfblocksize): iend = self.halfblocksize
         phi0 = self.model.phi0()
-        tau = self.model.Wq() * phi0 / self.model.Bq()
+        tauinv = self.model.Wq() * phi0 / self.model.Bq()
         for i in range(iend):
              t = i*self.h0
-             self.phi_[i] = phi0 - t/tau
+             self.phi_[i] = phi0 - t*tauinv
              self.jit_kernel (self.m_[i], self.phi_[i], i, t)
         for i in range(1,iend):
              self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
