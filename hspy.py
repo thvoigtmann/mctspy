@@ -53,7 +53,7 @@ plt.show()
 
 model = mct.simple_liquid_model (sq, qgrid)
 phi = mct.correlator (model = model, store = True, blocks=50)
-correlators = [phi]
+correlators = mct.CorrelatorStack([phi])
 
 model_s = mct.tagged_particle_model (model, cs=sq)
 phi_s = mct.correlator (model = model_s, base=phi, store = True)
@@ -80,7 +80,7 @@ if False:
 def output (d, istart, iend, correlator_array):
     print ("block",d,"\r",end='')
 
-phi.solve_all(correlators, callback=output)
+correlators.solve_all(callback=output)
 
 
 qval = 7.4

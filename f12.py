@@ -21,7 +21,7 @@ model = mct.f12model (args.v1, args.v2)
 #v1,v2 = args.v1,args.v2
 #model = mct.schematic (njit(lambda x:v1*x + v2*x*x))
 phi = mct.correlator (model = model, maxiter=1000000, blocksize=256, accuracy=1e-10, store=True)
-correlators = [phi]
+correlators = mct.CorrelatorStack([phi])
 
 model_s = mct.sjoegren_model(args.vs,model)
 phi_s = mct.correlator (model = model_s, base=phi, store=True)
@@ -50,23 +50,23 @@ def output (d, istart, iend, correlator_array):
     print ("block",d,"\r",end='')
 
 
-f = mct.nonergodicity_parameter (model)
-f.solve()
-print(f.f,f.m)
+#f = mct.nonergodicity_parameter (model)
+#f.solve()
+#print(f.f,f.m)
+#
+#fs = mct.nonergodicity_parameter (model_s)
+#fs.solve()
+#print(fs.f,fs.m)
+#
+#ev = mct.eigenvalue (f)
+#ev.solve()
+#print ("# eigenvalue = {:f} (check ehat: {:f})".format(ev.eval,ev.eval2))
+#print ("# e = {}".format(ev.e))
+#print ("# ehat = {}".format(ev.ehat))
+#print ("# lambda = {:f}".format(ev.lam))
 
-fs = mct.nonergodicity_parameter (model_s)
-fs.solve()
-print(fs.f,fs.m)
 
-ev = mct.eigenvalue (f)
-ev.solve()
-print ("# eigenvalue = {:f} (check ehat: {:f})".format(ev.eval,ev.eval2))
-print ("# e = {}".format(ev.e))
-print ("# ehat = {}".format(ev.ehat))
-print ("# lambda = {:f}".format(ev.lam))
-
-
-phi.solve_all(correlators, callback=output)
+correlators.solve_all(callback=output)
 print("")
 
 plt.plot(phi.t,phi.phi)

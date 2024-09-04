@@ -24,7 +24,7 @@ def _decimize (phi, m, dPhi, dM, blocksize):
         phi[i] = phi[di]
         m[i] = m[di]
 @njit(cache=True)
-def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, accuracy):
+def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments):
     A = dM[1] + Wq + 1.5*Bq / h
     B = (-dPhi[1] + phi[0]) / A
 
@@ -52,6 +52,9 @@ def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, ac
                            rtol=accuracy, atol=accuracy).all():
                 converged = True
                 phi[i] = newphi
+                if calc_moments:
+                    dPhi[i] = 0.5 * (phi[i-1] + phi[i])
+                    dM[i] = 0.5 * (m[i-1] + m[i])
 
 
 class correlator (object):
@@ -109,33 +112,11 @@ class correlator (object):
         self.h = self.h * 2.0
 
     def solve_block (self, istart, iend):
-        _solve_block (istart, iend, self.h, self.model.Bq(), self.model.Wq(), self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy)
+        _solve_block (istart, iend, self.h, self.model.Bq(), self.model.Wq(), self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2))
 
-    def solve_all (self, correlators, callback=lambda d,i1,i2,corr:None):
-        blocksize = self.blocksize
-        halfblocksize = self.halfblocksize
-        blocks = self.blocks
-        for _phi_ in correlators:
-            _phi_.initial_values ()
-            _phi_.solve_block (_phi_.iend, halfblocksize)
-            if _phi_.store:
-                _phi_.t[:halfblocksize] = _phi_.h * np.arange(halfblocksize)
-                _phi_.phi[:halfblocksize,:] = _phi_.phi_[:halfblocksize,:]
-                _phi_.m[:halfblocksize,:] = _phi_.m_[:halfblocksize,:]
-        callback (0, 0, halfblocksize, correlators)
-        for d in range(blocks):
-            for _phi_ in correlators:
-                _phi_.solve_block (_phi_.halfblocksize, _phi_.blocksize)
-                if _phi_.store:
-                    _phi_.t[d*halfblocksize+halfblocksize:d*halfblocksize+blocksize] = _phi_.h * np.arange(halfblocksize,blocksize)
-                    _phi_.phi[d*halfblocksize+halfblocksize:d*halfblocksize+blocksize,:] = _phi_.phi_[halfblocksize:blocksize,:]
-                    _phi_.m[d*halfblocksize+halfblocksize:d*halfblocksize+blocksize,:] = _phi_.m_[halfblocksize:blocksize,:]
-            callback (d, halfblocksize, blocksize, correlators)
-            for _phi_ in correlators:
-                _phi_.decimize ()
 
 @njit(cache=True)
-def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, accuracy):
+def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments):
     A = dM[1] + 1.5*nutmp
 
     for i in range(istart,iend):
@@ -153,6 +134,9 @@ def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter,
 
         kernel (m[i], None, i, h*i)
         phi[i] = - C
+        if calc_moments:
+            dPhi[i] = 0.5 * (phi[i-1] + phi[i])
+            dM[i] = 0.5 * (m[i-1] + m[i])
 
 
 class mean_squared_displacement (correlator):
@@ -172,6 +156,6 @@ class mean_squared_displacement (correlator):
         self.iend = iend
 
     def solve_block (self, istart, iend):
-        _msd_solve_block (istart, iend, self.h, self.model.Bq()/self.h, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy)
+        _msd_solve_block (istart, iend, self.h, self.model.Bq()/self.h, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy, (istart<self.blocksize//2))
 
 
