@@ -93,7 +93,7 @@ class correlator (object):
 
     def initial_values (self, imax=50):
         iend = imax
-        if (iend > self.halfblocksize): iend = self.halfblocksize
+        if (iend >= self.halfblocksize): iend = self.halfblocksize-1
         phi0 = self.model.phi0()
         tauinv = self.model.Wq() * phi0 / self.model.Bq()
         for i in range(iend):
@@ -143,7 +143,7 @@ class mean_squared_displacement (correlator):
 
     def initial_values (self, imax=50):
         iend = imax
-        if (iend > self.halfblocksize): iend = self.halfblocksize
+        if (iend >= self.halfblocksize): iend = self.halfblocksize-1
         for i in range(iend):
             t = i*self.h0
             self.phi_[i] = np.ones(self.mdimen)*6.*t/self.model.Bq()
