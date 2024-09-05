@@ -91,6 +91,8 @@ class correlator (object):
         model.set_base(self.phi_)
         self.jit_kernel = model.get_kernel(self.m_[0],self.phi_[0],0,0.0)
 
+        self.solved = -2
+
     def initial_values (self, imax=50):
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
@@ -111,9 +113,45 @@ class correlator (object):
         _decimize (self.phi_, self.m_, self.dPhi_, self.dM_, self.blocksize)
         self.h = self.h * 2.0
 
+    # core interface, can be reimplemented by derived solvers
     def solve_block (self, istart, iend):
         _solve_block (istart, iend, self.h, self.model.Bq(), self.model.Wq(), self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2))
 
+    # new interface with reconstruction of already solved cases
+    # does not call the jitted _solve_block directly because
+    # for example the MSD solver wants to put its own implementation there
+    def solve_first (self):
+        self.h = self.h0
+        if not self.store or not self.solved >= -1:
+            self.initial_values ()
+            self.solve_block (self.iend, self.halfblocksize)
+            if self.store:
+                N2 = self.halfblocksize
+                self.t[:N2] = self.h * np.arange(N2)
+                self.phi[:N2,:] = self.phi_[:N2,:]
+                self.m[:N2,:] = self.m_[:N2,:]
+            self.solved = -1
+        else:
+            N2 = self.halfblocksize
+            self.phi_[:N2,:] = self.phi[:N2,:]
+            self.m_[:N2,:] = self.m[:N2,:]
+            self.dPhi_[1:N2,:] = (self.phi_[:N2-1,:] + self.phi_[1:N2,:])/2.
+            self.dM_[1:N2,:] = (self.m_[:N2-1,:] + self.m_[1:N2,:])/2.
+    def solve_next (self, d):
+        if not self.store or not self.solved >= d:
+            self.solve_block (self.halfblocksize, self.blocksize)
+            if self.store:
+                N2 = self.halfblocksize
+                N = self.blocksize
+                self.t[d*N2+N2:d*N2+N] = self.h * np.arange(N2,N)
+                self.phi[d*N2+N2:d*N2+N,:] = self.phi_[N2:,:]
+                self.m[d*N2+N2:d*N2+N,:] = self.m_[N2:,:]
+            self.solved = d
+        else:
+            N2 = self.halfblocksize
+            N = self.blocksize
+            self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:]
+            self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:]
 
 @njit(cache=True)
 def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments):
