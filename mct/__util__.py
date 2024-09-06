@@ -56,7 +56,7 @@ class model_base (object):
             self.__dm2__ = self.make_dm2(m,phi,dphi)
         return self.__dm2__
 
-    def make_kernel (self, phi, i, t):
+    def make_kernel (self, m, phi, i, t):
         @nb.njit
         def dummy(m, phi, i, t):
             return
@@ -82,3 +82,16 @@ class model_base (object):
 
     def dq (self):
         return 1.0
+
+    def h5save (self, fh):
+        return
+
+class loaded_model(model_base):
+    def __init__ (self, h5data):
+        model_definition = h5data['model']
+        for attr,val in model_definition.attrs.items():
+            self.__dict__[attr] = val
+        for field,val in model_definition.items():
+            self.__dict__[field] = np.array(val)
+    def __len__ (self):
+        return self.M

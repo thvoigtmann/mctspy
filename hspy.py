@@ -81,17 +81,33 @@ def output (d, istart, iend, correlator_array):
     print ("block",d,"\r",end='')
 
 correlators.solve_all(callback=output)
+print("")
+
+# save:
+#phi.save("/tmp/phi.h5")
+
+# restore:
+#phi2 = mct.correlator.load('/tmp/phi.h5')
+#correlators2 = mct.CorrelatorStack([phi2])
+#model_s2 = mct.tagged_particle_model (phi2.model, cs=sq)
+#phi_s2 = mct.correlator (model = model_s2, base=phi2, store = True)
+#correlators2.append(phi_s2)
+#correlators2.solve_all(callback=output)
+#print("")
 
 
 qval = 7.4
 qi = np.nonzero(np.isclose(qgrid,qval))[0][0]
 print(phi.phi.shape)
-plt.plot(phi.t, phi.phi[:,qi])
-plt.plot(phi_s.t, phi_s.phi[:,qi])
+plt.plot(phi.t, phi.phi[:,qi], label='phi')
+plt.plot(phi_s.t, phi_s.phi[:,qi], label='phi_s')
 plt.plot(phi.t, np.exp(-qval**2*phi.t),color='black',linestyle='dashed')
 #plt.plot(phi.t, phi.m[:,qi])
 plt.xscale('log')
+plt.legend()
 plt.show()
+
+quit()
 
 for corr in [phi,phi_s]:
     tau_indices = corr.phi.shape[0] - np.sum(corr.phi<=0.1,axis=0)

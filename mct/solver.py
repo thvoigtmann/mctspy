@@ -2,7 +2,9 @@ import numpy as np
 
 from numba import njit
 
-from .__util__ import model_base
+import h5py
+
+from .__util__ import model_base, loaded_model
 
 
 @njit(cache=True)
@@ -71,7 +73,7 @@ class correlator (object):
             self.blocks = base.blocks
             self.halfblocksize = base.halfblocksize
             self.blocksize = base.blocksize
-            self.base = base
+            #self.base = base
         self.h = self.h0
         self.mdimen = len(model)
         self.phi_ = np.zeros((self.blocksize,self.mdimen))
@@ -114,6 +116,7 @@ class correlator (object):
         self.h = self.h * 2.0
 
     # core interface, can be reimplemented by derived solvers
+    # this is not safe to be reused with save/restore functionality
     def solve_block (self, istart, iend):
         _solve_block (istart, iend, self.h, self.model.Bq(), self.model.Wq(), self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2))
 
@@ -152,6 +155,43 @@ class correlator (object):
             N = self.blocksize
             self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:]
             self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:]
+
+    def save (self, file):
+        if not self.store or not self.solved > -2:
+            return # should throw an exception
+        with h5py.File(file, 'w') as f:
+            self.h5save (f)
+            self.model.h5save (f)
+    def h5save (self, base):
+        grp = base.create_group("correlator")
+        grp.attrs['type'] = self.type()
+        grp2 = grp.create_group("time_domain")
+        grp2.create_dataset("t",data=self.t)
+        grp2.create_dataset("phi",data=self.phi)
+        grp2.create_dataset("m",data=self.m)
+        grp2.attrs['solver'] = 'moment'
+        grp2.attrs['h0'] = self.h0
+        grp2.attrs['blocks'] = self.blocks
+        grp2.attrs['solved_blocks'] = self.solved
+        grp2.attrs['blocksize'] = self.blocksize
+        grp2.attrs['maxiter'] = self.maxiter
+        grp2.attrs['accuracy'] = self.accuracy
+    def type (self):
+        return 'phi'
+    @staticmethod
+    def load (file):
+        with h5py.File(file, 'r') as f:
+            attrs = f['correlator/time_domain'].attrs
+            newself = correlator(
+                blocksize=attrs['blocksize'], h=attrs['h0'],
+                blocks=attrs['blocks'], maxiter=attrs['maxiter'],
+                accuracy=attrs['accuracy'], model = loaded_model(f))
+            newself.t = np.array(f['correlator/time_domain/t'])
+            newself.phi = np.array(f['correlator/time_domain/phi'])
+            newself.m = np.array(f['correlator/time_domain/m'])
+            newself.store = True
+            newself.solved = attrs['solved_blocks']
+        return newself
 
 @njit(cache=True)
 def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments):
@@ -196,4 +236,6 @@ class mean_squared_displacement (correlator):
     def solve_block (self, istart, iend):
         _msd_solve_block (istart, iend, self.h, self.model.Bq()/self.h, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy, (istart<self.blocksize//2))
 
+    def type (self):
+        return 'MSD'
 

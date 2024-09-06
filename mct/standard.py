@@ -3,6 +3,9 @@ import numpy as np
 from numba import njit
 from .__util__ import model_base, void, nparray
 
+def _dq (q):
+    return np.diff(q, append=2*q[-1]-q[-2])
+
 class simple_liquid_model (model_base):
     def __init__ (self, Sq, q, D0=1.0):
         self.rho = Sq.density()
@@ -18,7 +21,7 @@ class simple_liquid_model (model_base):
     def Bq (self):
         return self.sq/self.D0
     def dq (self):
-        return np.diff(self.q, append=2*self.q[-1]-self.q[-2])
+        return _dq(self.q)
     def __init_vertices__ (self):
         pre = 1./(32.*np.pi**2) * self.rho
         q = self.q
@@ -144,6 +147,17 @@ class simple_liquid_model (model_base):
                 m[qi] = mq * dq[qi]**2 / q[qi]**2
         return dm2
 
+    def h5save (self, fh):
+        grp = fh.create_group("model")
+        grp.attrs['type'] = 'simple_liquid'
+        grp.attrs['M'] = self.M
+        grp.attrs['dynamics'] = 'BD'
+        grp.attrs['D0'] = self.D0
+        grp.attrs['rho'] = self.rho
+        grp.create_dataset("q",data=self.q)
+        grp.create_dataset("sq",data=self.sq)
+        grp.create_dataset("cq",data=self.cq)
+
 class tagged_particle_model (model_base):
     def __init__ (self, base_model, cs, D0s=1.0):
         self.base = base_model
@@ -160,6 +174,7 @@ class tagged_particle_model (model_base):
         return np.ones(self.M)/self.D0
     def __init_vertices__ (self):
         pre = (1./(4.*np.pi))**2. * self.base.rho
+        print("TP",pre)
         q = self.q
         sp = self.base.sq
         csp = self.cs
@@ -199,7 +214,7 @@ class tagged_particle_model (model_base):
                         if pi < M:
                             zqk += b[n,qi,pi] * f[pi]
                         V[qi,ki] += a[n,ki] * zqk
-        calc_V (V, array[0])
+        #calc_V (V, array[0])
         self.__calcV__ = calc_V
         self.__Vqk__ = V
     def make_kernel (self, ms, phis, i, t):
@@ -207,7 +222,7 @@ class tagged_particle_model (model_base):
         Vqk = void(self.__Vqk__)
         Vfunc = self.__calcV__
         base_phi = self.base.phi
-        dq = self.base.dq()
+        dq = _dq(self.base.q)
         self.__i__ = np.zeros(1,dtype=int)
         __i__ = void(self.__i__)
         @njit
@@ -229,7 +244,7 @@ class tagged_particle_q0 (model_base):
     def __len__ (self):
         return 1
     def __init_vertices__ (self):
-        pre = 1./(6.*np.pi**2) * self.base.base.dq()[0] * self.base.base.rho
+        pre = 1./(6.*np.pi**2) * _dq(self.base.base.q)[0] * self.base.base.rho
         sk = self.base.base.sq
         cs = self.base.cs
         self.V = pre * (self.base.q**2 * cs)**2 * sk
