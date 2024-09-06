@@ -174,7 +174,6 @@ class tagged_particle_model (model_base):
         return np.ones(self.M)/self.D0
     def __init_vertices__ (self):
         pre = (1./(4.*np.pi))**2. * self.base.rho
-        print("TP",pre)
         q = self.q
         sp = self.base.sq
         csp = self.cs
