@@ -218,6 +218,7 @@ class tagged_particle_model (model_base):
         self.__Vqk__ = V
     def make_kernel (self, ms, phis, i, t):
         M = self.M
+        #a, b = self.a, self.b
         Vqk = void(self.__Vqk__)
         Vfunc = self.__calcV__
         base_phi = self.base.phi
@@ -233,6 +234,26 @@ class tagged_particle_model (model_base):
                 Vfunc(V, phi[i])
                 last_i[0] = i
             ms[:] = dq**2 * np.dot(V,phis)
+        #def ker (ms, phis, i, t):
+        #    f = nparray(base_phi)[i]
+        #    for qi in range(M):
+        #        mq = 0.
+        #        for n in range(3):
+        #            pi, ki = qi, 0
+        #            zqk = b[n,qi,pi] * f[pi]
+        #            mq += a[n,ki] * zqk * phis[ki]
+        #            for ki in range(1, M):
+        #                if ki <= qi:
+        #                    pi = qi - ki
+        #                    zqk += b[n,qi,pi] * f[pi]
+        #                else:
+        #                    pi = ki - qi - 1
+        #                    zqk -= b[n,qi,pi] * f[pi]
+        #                pi = qi + ki
+        #                if pi < M:
+        #                    zqk += b[n,qi,pi] * f[pi]
+        #                mq += a[n,ki] * zqk * phis[ki]
+        #        ms[qi] = mq * dq[qi]**2
         return ker
 
 
