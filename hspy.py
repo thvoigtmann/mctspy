@@ -7,6 +7,8 @@ import mct
 parser = argparse.ArgumentParser()
 parser.add_argument ('-phi',metavar='phi',help='packing fraction',
                      type=float, nargs='+', default=0.5)
+parser.add_argument ('-delta',metavar='delta',help='tagged-particle size',
+                     type=float, default=1.0)
 args = parser.parse_args()
 
 class hssPY (object):
@@ -44,6 +46,46 @@ class hssPY (object):
         # bigger than low-q
         return 1.0 / (1.0 - self.phi*6/np.pi * cq_), cq_
 
+class hssPYtagged (object):
+    def __init__ (self, phi, delta):
+        etacmp = (1.-phi)
+        self.eta2 = (1.+2*phi)/etacmp**2
+        self.Aab = 0.5*(1-phi+delta*(1+2*phi))/etacmp**2
+        self.Bab = (etacmp**2-3*phi*delta*(1+2*phi))/etacmp**3
+        self.Dab = 6*phi*(2+phi+delta*(1+2*phi))/etacmp**3
+        self.a2 = 6*phi/np.pi/etacmp**2 *\
+                  (1.+6*phi/etacmp+9*phi**2/etacmp**2)
+        self.phi = phi
+        self.delta = delta
+        self.lowq = 0.05
+    def cq (self, q):
+        highq = q>=self.lowq
+        lowq = q<self.lowq
+        phi = self.phi
+        delta = self.delta
+        q2 = q*q
+        q3 = q2[highq]*q[highq]
+        q4 = q2*q2
+        q6 = q4[highq]*q2[highq]
+        c1 = np.cos(0.5*q[highq])
+        s1 = np.sin(0.5*q[highq])
+        cd = np.cos(0.5*q[highq]*delta)
+        sd = np.sin(0.5*q[highq]*delta)
+        cq1 = np.zeros_like(q)
+        cq2 = np.zeros_like(q)
+        cq3 = np.zeros_like(q)
+        cq1[highq] = 4*np.pi * self.Aab * (c1*cd - s1*sd)/q2[highq]
+        cq2[highq] = -4*np.pi * self.Bab * (cd*s1 + c1*sd)/q3 \
+                     -4*np.pi * self.Dab * s1 * sd / q4[highq]
+        cq3[highq] = -4*np.pi*np.pi * self.a2 * \
+                     (q[highq]*c1-2*s1)*(q[highq]*delta*cd-2*sd) / q6
+        # low q expansion
+        cq1[lowq] = - np.pi/6.*((3*self.Aab-0.5*self.Bab*(1+delta))*(1+delta)**2 - 0.25*self.Dab*delta*(1+delta**2)+(self.eta2**2)*(delta**3)*phi);
+        cq2[lowq] = np.pi/240. * ((2.5*self.Aab-0.25*self.Bab*(1+delta))*(1+delta)**4 - (1./24)*self.Dab*delta*(3+10*(delta**2)+3*(delta**4)) + ((delta**3)+(delta**5))*phi*(self.eta2**2)) * q2[lowq]
+        cq3[lowq] = -np.pi/26880.*(((7./3)*self.Aab-(1./6)*self.Bab*(1+delta))*(1+delta)**6 -(1./12)*self.Dab*delta*(1+7*(delta**2)+7*(delta**4)+(delta**6)) + (delta**3)*(1./5)*(5+14*(delta**2)+5*(delta**4))*phi * (self.eta2**2)) * q4[lowq]
+        return cq1 + cq2 + cq3
+
+
 def output (d, istart, iend, correlator_array):
     print ("block",d,"\r",end='')
 
@@ -52,24 +94,28 @@ qgrid = np.linspace(0.2,39.8,100)
 
 
 sqlist = []
+cslist = []
 for packing_fraction in args.phi:
     sq = hssPY(phi=packing_fraction)
     plt.plot(qgrid, sq.Sq(qgrid)[0])
+    cs = hssPYtagged(phi=packing_fraction,delta=args.delta)
     sqlist.append(sq)
+    cslist.append(cs)
 plt.show()
+
 
 phi_list = []
 phi_s_list = []
 msd_list = []
 ngp_list = []
-for packing_fraction,sq in zip(args.phi,sqlist):
+for packing_fraction,sq,cs in zip(args.phi,sqlist,cslist):
     # base model "simple liquid"
     model = mct.simple_liquid_model (sq, qgrid)
     phi = mct.correlator (model = model, store = True, blocks=50)
     correlators = mct.CorrelatorStack([phi])
 
     # tagged-particle model
-    model_s = mct.tagged_particle_model (model, cs=sq)
+    model_s = mct.tagged_particle_model (model, cs=cs)
     phi_s = mct.correlator (model = model_s, base=phi, store = True)
     correlators.append(phi_s)
 
@@ -149,4 +195,5 @@ plt.show()
 for packing_fraction,ngp in zip(args.phi,ngp_list):
     plt.plot(ngp.t[ngp.t>1e-5], (ngp.phi[:,0][ngp.t>1e-5]/ngp.phi[:,1][ngp.t>1e-5]**2 - 1), label='NGP phi={}'.format(packing_fraction))
 plt.xscale('log')
+plt.legend()
 plt.show()
