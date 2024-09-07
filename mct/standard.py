@@ -274,6 +274,8 @@ class tagged_particle_q0 (model_base):
         self.__init_vertices__()
     def __len__ (self):
         return 1
+    def Bq (self):
+        return np.ones(len(self))/self.base.D0
     def __init_vertices__ (self):
         pre = 1./(6.*np.pi**2) * _dq(self.base.base.q)[0] * self.base.base.rho
         sk = self.base.base.sq

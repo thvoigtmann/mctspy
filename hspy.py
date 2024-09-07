@@ -115,7 +115,7 @@ for packing_fraction,sq,cs in zip(args.phi,sqlist,cslist):
     correlators = mct.CorrelatorStack([phi])
 
     # tagged-particle model
-    model_s = mct.tagged_particle_model (model, cs=cs)
+    model_s = mct.tagged_particle_model (model, cs=cs, D0s=1/args.delta)
     phi_s = mct.correlator (model = model_s, base=phi, store = True)
     correlators.append(phi_s)
 
@@ -190,7 +190,7 @@ plt.show()
 
 for packing_fraction,msd in zip(args.phi,msd_list):
     plt.plot(msd.t, msd.phi[:,0])
-    plt.plot(msd.t, 6*msd.t, color='black', linestyle='dashed')
+    plt.plot(msd.t, 6*msd.t/args.delta, color='black', linestyle='dashed')
 plt.xscale('log')
 plt.yscale('log')
 plt.show()
