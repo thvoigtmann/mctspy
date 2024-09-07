@@ -256,6 +256,17 @@ class tagged_particle_model (model_base):
         #        ms[qi] = mq * dq[qi]**2
         return ker
 
+    def h5save (self, fh):
+        grp = fh.create_group("model")
+        grp.attrs['type'] = 'tagged_particle'
+        grp.attrs['M'] = self.M
+        grp.attrs['dynamics'] = 'BD'
+        grp.attrs['D0'] = self.D0
+        grp.create_dataset("q",data=self.q)
+        grp.create_dataset("cs",data=self.cs)
+        grp2 = grp.create_group("base")
+        self.base.h5save(grp2)
+
 
 class tagged_particle_q0 (model_base):
     def __init__ (self, base_model):
@@ -282,6 +293,12 @@ class tagged_particle_q0 (model_base):
             V = nparray(Vk)
             ms0[:] = np.dot(V,phi[i]*phi_s[i]) # good for one-component only
         return ker
+    def h5save (self, fh):
+        grp = fh.create_group("model")
+        grp.attrs['type'] = 'tagged_particle_q0'
+        grp.attrs['dynamics'] = 'BD'
+        grp2 = grp.create_group("base")
+        self.base.h5save(grp2)
 
 class tagged_particle_ngp (tagged_particle_q0):
     def __init__ (self, base_model):
@@ -320,3 +337,10 @@ class tagged_particle_ngp (tagged_particle_q0):
         return ker
     def phi2 (self):
         return nparray(self.msdbase.phi)
+    def h5save (self, fh):
+        grp = fh.create_group("model")
+        grp.attrs['type'] = 'tagged_particle_ngp'
+        grp.attrs['dynamics'] = 'BD'
+        grp2 = grp.create_group("base")
+        self.base.h5save(grp2)
+
