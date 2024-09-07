@@ -95,3 +95,11 @@ class loaded_model(model_base):
             self.__dict__[field] = np.array(val)
     def __len__ (self):
         return self.M
+
+@nb.njit
+def np_gradient(f,k):
+    df_dk = np.zeros_like(f)
+    df_dk[1:-1] = (f[2:]-f[0:-2])/(k[2:]-k[0:-2])
+    df_dk[0] = (f[1]-f[0])/(k[1]-k[0])
+    df_dk[-1] = (f[-1]-f[-2])/(k[-1]-k[-2])
+    return df_dk

@@ -239,3 +239,53 @@ class mean_squared_displacement (correlator):
     def type (self):
         return 'MSD'
 
+
+@njit(cache=True)
+def _ngp_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments):
+    A = dM[1] + 1.5*nutmp
+
+    for i in range(istart,iend):
+        ibar = i//2
+        # this is 2-dim, calculates m*a and m2*dr2
+        # where a is (1+a2)dr2^2
+        # we assume phi[i,1] to be pre-filled
+        C = (m[i]-m[i-1])*dPhi[1] - phi[i-1]*dM[1]
+        C[1] += phi[i,1]*dM[1,1]
+        for k in range(2,ibar+1):
+            C += (m[i-k+1] - m[i-k]) * dPhi[k]
+            C += (phi[i-k+1] - phi[i-k]) * dM[k]
+        if (i-ibar > ibar):
+            C += (phi[i-k+1] - phi[i-k]) * dM[k]
+        C += m[i-ibar] * phi[ibar]
+        C[0] += (-2.0*phi[i-1,0] + 0.5*phi[i-2,0]) * nutmp[0]
+        C[0] += -12.0 * phi[i,1] - 6.0 * C[1]
+        C = C/A
+
+        kernel (m[i], None, i, h*i)
+        phi[i,0] = - C[0]
+        if calc_moments:
+            dPhi[i] = 0.5 * (phi[i-1] + phi[i])
+            dM[i] = 0.5 * (m[i-1] + m[i])
+
+class non_gaussian_parameter (correlator):
+
+    def initial_values (self, imax=50):
+        iend = imax
+        if (iend >= self.halfblocksize): iend = self.halfblocksize-1
+        for i in range(iend):
+            t = i*self.h0
+            self.phi_[i] = np.zeros(self.mdimen)
+            self.jit_kernel (self.m_[i], None, i, t)
+        for i in range(1,iend):
+            self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
+            self.dM_[i] = 0.5 * (self.m_[i-1] + self.m_[i])
+        self.dPhi_[iend] = self.phi_[iend-1]
+        self.dM_[iend] = self.m_[iend-1]
+        self.iend = iend
+
+    def solve_block (self, istart, iend):
+        self.phi_[istart:iend,1] = self.model.phi2()[istart:iend,0]
+        _ngp_solve_block (istart, iend, self.h, self.model.Bq()/self.h, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy, (istart<self.blocksize//2))
+
+    def type (self):
+        return 'NGP'

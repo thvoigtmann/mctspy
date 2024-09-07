@@ -78,6 +78,11 @@ for packing_fraction,sq in zip(args.phi,sqlist):
     msd = mct.mean_squared_displacement (model = model_s0, base=phi_s, store=True)
     correlators.append(msd)
 
+    # non-Gaussian parameter
+    model_ngp = mct.tagged_particle_ngp (model_s0)
+    ngp = mct.non_gaussian_parameter (model = model_ngp, base=msd, store=True)
+    correlators.append(ngp)
+
     if False:
         f = mct.nonergodicity_parameter (model = model)
         f.solve()
@@ -112,6 +117,7 @@ for packing_fraction,sq in zip(args.phi,sqlist):
     phi_list.append(phi)
     phi_s_list.append(phi_s)
     msd_list.append(msd)
+    ngp_list.append(ngp)
 
 
 qval = 7.4
@@ -138,4 +144,9 @@ for packing_fraction,msd in zip(args.phi,msd_list):
     plt.plot(msd.t, 6*msd.t, color='black', linestyle='dashed')
 plt.xscale('log')
 plt.yscale('log')
+plt.show()
+
+for packing_fraction,ngp in zip(args.phi,ngp_list):
+    plt.plot(ngp.t[ngp.t>1e-5], (ngp.phi[:,0][ngp.t>1e-5]/ngp.phi[:,1][ngp.t>1e-5]**2 - 1), label='NGP phi={}'.format(packing_fraction))
+plt.xscale('log')
 plt.show()

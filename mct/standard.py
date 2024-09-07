@@ -1,7 +1,7 @@
 import numpy as np
 
 from numba import njit
-from .__util__ import model_base, void, nparray
+from .__util__ import model_base, void, nparray, np_gradient
 
 def _dq (q):
     return np.diff(q, append=2*q[-1]-q[-2])
@@ -259,5 +259,43 @@ class tagged_particle_q0 (model_base):
             phi = nparray(base_phi)
             phi_s = nparray(base_phi_s)
             V = nparray(Vk)
-            ms0[:] = np.dot(V,phi[i]*phi_s[i])
+            ms0[:] = np.dot(V,phi[i]*phi_s[i]) # good for one-component only
         return ker
+
+class tagged_particle_ngp (tagged_particle_q0):
+    def __init__ (self, base_model):
+        tagged_particle_q0.__init__ (self, base_model.base)
+        self.msdbase = base_model
+    #def __init__ (self, base_model):
+    #    self.base = base_model
+    #    self.__init_vertices__()
+    def __len__ (self):
+        return 2
+    #def __init_vertices__ (self):
+    #    # this is the same as for tagged_particle_q0
+    #    pre = 1./(6.*np.pi**2) * _dq(self.base.base.q)[0] * self.base.base.base.rho
+    #    sk = self.base.base.base.sq
+    #    cs = self.base.base.cs
+    #    self.V = pre * (self.base.base.q**2 * cs)**2 * sk
+    def make_kernel (self, ngpm, ngpphi, i, t):
+        # ngpphi is (1-a2(t))dr2(t)^2
+        # since we inherit from tagged_particle_q0,
+        # the "base" is phis, and its "base" is phi
+        phisbase_phi = self.base.phi
+        phibase_phi = self.base.base.phi
+        Vk = void(self.V)
+        k = self.base.q
+        @njit
+        def ker (ngpm, ngpphi, i, t):
+            phis = nparray(phisbase_phi)
+            phi = nparray(phibase_phi)
+            #dphis = np.gradient(phis[i],k)
+            #dd = np.gradient(dphis,k) + (2./3)*dphis
+            dphis = np_gradient(phis[i],k)
+            dd = np_gradient(dphis,k) + (2./3)*dphis/k
+            V = nparray(Vk)
+            ngpm[0] = np.dot(V,phi[i]*phis[i]) # one-component only
+            ngpm[1] = (3./5) * np.dot(V,phi[i]*dd)
+        return ker
+    def phi2 (self):
+        return nparray(self.msdbase.phi)
