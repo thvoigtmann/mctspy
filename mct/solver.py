@@ -198,6 +198,8 @@ def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter,
     A = dM[1] + 1.5*nutmp
 
     for i in range(istart,iend):
+        kernel (m[i], None, i, h*i)
+
         ibar = i//2
         C = (m[i]-m[i-1])*dPhi[1] - phi[i-1]*dM[1]
         for k in range(2,ibar+1):
@@ -210,7 +212,7 @@ def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter,
         C += -6.0
         C = C/A
 
-        kernel (m[i], None, i, h*i)
+        #kernel (m[i], None, i, h*i)
         phi[i] = - C
         if calc_moments:
             dPhi[i] = 0.5 * (phi[i-1] + phi[i])
@@ -245,6 +247,8 @@ def _ngp_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter,
     A = dM[1] + 1.5*nutmp
 
     for i in range(istart,iend):
+        kernel (m[i], None, i, h*i)
+
         ibar = i//2
         # this is 2-dim, calculates m*a and m2*dr2
         # where a is (1+a2)dr2^2
@@ -261,13 +265,20 @@ def _ngp_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter,
         C[0] += -12.0 * phi[i,1] - 6.0 * C[1]
         C = C/A
 
-        kernel (m[i], None, i, h*i)
+        #kernel (m[i], None, i, h*i)
         phi[i,0] = - C[0]
         if calc_moments:
             dPhi[i] = 0.5 * (phi[i-1] + phi[i])
             dM[i] = 0.5 * (m[i-1] + m[i])
 
 class non_gaussian_parameter (correlator):
+    """Solver for the non-Gaussian parameter.
+
+    Note
+    ----
+    This solves for a(t)=(1+a2(t))msd(t)^2 in component 0
+    Component 1 of phi will be filled with the MSD
+    """
 
     def initial_values (self, imax=50):
         iend = imax
@@ -275,6 +286,7 @@ class non_gaussian_parameter (correlator):
         for i in range(iend):
             t = i*self.h0
             self.phi_[i] = np.zeros(self.mdimen)
+            self.phi_[i,1] = self.model.phi2()[i,0]
             self.jit_kernel (self.m_[i], None, i, t)
         for i in range(1,iend):
             self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])

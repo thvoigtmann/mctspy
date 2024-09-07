@@ -184,7 +184,7 @@ class tagged_particle_model (model_base):
         self.a[2] = q
         q_, p_ = np.meshgrid(q,q,indexing='ij')
         pq = p_/q_**3 * pre * sp * csp**2
-        qsq_psq = q_**2 - p_**2
+        qsq_psq = q_**2 + p_**2
         self.b[0] = pq
         self.b[1] = pq * qsq_psq
         self.b[2] = pq * qsq_psq**2
