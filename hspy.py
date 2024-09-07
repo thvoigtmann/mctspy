@@ -132,7 +132,10 @@ for packing_fraction,sq,cs in zip(args.phi,sqlist,cslist):
     if False:
         f = mct.nonergodicity_parameter (model = model)
         f.solve()
+        fs = mct.nonergodicity_parameter (model = model_s)
+        fs.solve()
         plt.plot(qgrid, f.f[0])
+        plt.plot(qgrid, fs.f[0])
         plt.show()
     
         ev = mct.eigenvalue (f)
