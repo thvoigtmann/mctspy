@@ -17,7 +17,7 @@ def _fsolve (f, m, W, phi0, kernel, M, accuracy, maxiter):
         if np.isclose (newf, f[0], rtol=accuracy, atol=0.0).all():
             converged = True
             f[0] = newf
-        if not iterations%100: print("iter",iterations)
+        if not iterations%100: print("iter",iterations,np.mean(np.abs(newf-f[0])))
 
 class nonergodicity_parameter (object):
     def __init__ (self, model, accuracy=1e-12, maxiter=1000000):
