@@ -1,10 +1,10 @@
-.. mcts-py documentation master file, created by
+.. mctspy documentation master file, created by
    sphinx-quickstart on Mon Sep  9 11:42:31 2024.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-mcts-py: Mode-Coupling Theory Solver in Python
-==============================================
+mctspy: Mode-Coupling Theory Solver in Python
+=============================================
 
 .. toctree::
    :maxdepth: 2
@@ -15,12 +15,12 @@ This module provides a python implementation of numerical routines for the
 mode-coupling theory of the glass transition (MCT). In short, MCT is a
 theory that predicts dynamical correlation functions for highly viscous
 fluids, as solutions of certain integro-differential equations that are
-solved numerically. `mcts-py` supports this numerical solution alongside a
+solved numerically. `mctspy` supports this numerical solution alongside a
 number of utility helpers that are often used in conjunction with MCT.
 
 More information on MCT can be found in the standard references.
 
-The core functionality of `mcts-py` is the numerical treatment of evolution
+The core functionality of `mctspy` is the numerical treatment of evolution
 equations of the form
 
 .. math::
@@ -44,7 +44,7 @@ the equations. Close to such a bifurcation, the relaxation times of both
 the solution and the memory kernel become arbitrarily large, and hence
 adapted numerical integration schemes are needed to treat the MCT equations.
 
-At the moment, `mcts-py` is not yet a fully performant solver. It makes
+At the moment, `mctspy` is not yet a fully performant solver. It makes
 heavy use for the `numba` just-in-time compiler, but this leads to relatively
 long warm-up times when running even simple code. This code base is mostly
 intended to provide an easy entry point for people wanting to understand,

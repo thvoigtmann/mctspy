@@ -7,11 +7,6 @@ build:
   tools:
     python: "3.12"
 
-submodules:
-  include:
-    - mct
-  recursive: true
-
 sphinx:
   configuration: docs/conf.py
 

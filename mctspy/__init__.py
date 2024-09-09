@@ -7,4 +7,4 @@ from .util import CorrelatorStack, filon_integrate, filon_cos_transform, filon_s
 
 from .__util__ import model_base
 
-import mct.structurefactors
+import mctspy.structurefactors
