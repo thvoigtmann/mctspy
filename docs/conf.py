@@ -8,8 +8,9 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
+import mctspy as mct
 
-project = 'mcts-py'
+project = 'mctspy'
 copyright = '2024, Thomas Voigtmann'
 author = 'Thomas Voigtmann'
 

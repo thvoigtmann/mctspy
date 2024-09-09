@@ -51,19 +51,19 @@ intended to provide an easy entry point for people wanting to understand,
 use, modify and extend the core numerics behind MCT.
 
 
-.. automodule:: mct
+.. automodule:: mctspy
 
 Structure Factors
 =================
 
-.. autoclass:: mct.structurefactors.hssFMT2d
+.. autoclass:: mctspy.structurefactors.hssFMT2d
     :members:
     :inherited-members:
 
 Solvers
 =======
 
-.. autoclass:: mct.non_gaussian_parameter
+.. autoclass:: mctspy.non_gaussian_parameter
     :members:
     :inherited-members:
 
@@ -106,7 +106,7 @@ Solvers
 Models
 ======
 
-.. autoclass:: mct.tagged_particle_ngp
+.. autoclass:: mctspy.tagged_particle_ngp
     :members:
     :inherited-members:
 
@@ -131,7 +131,7 @@ Models
     re-calculated (for the sake of modularity, since calculation of the MSD
     is kept to its separate solver).
 
-.. autoclass:: mct.simple_liquid_model_2d
+.. autoclass:: mctspy.simple_liquid_model_2d
     :members:
     :inherited-members:
 
