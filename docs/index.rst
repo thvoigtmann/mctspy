@@ -3,14 +3,15 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to mcts-py's documentation!
-===================================
+mcts-py: Mode-Coupling Theory Solver in Python
+==============================================
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-This python code provides an implementation of numerical routines for the
+
+This module provides a python implementation of numerical routines for the
 mode-coupling theory of the glass transition (MCT). In short, MCT is a
 theory that predicts dynamical correlation functions for highly viscous
 fluids, as solutions of certain integro-differential equations that are
@@ -42,6 +43,15 @@ can show discontinuities upon a smooth change of the parameters entering
 the equations. Close to such a bifurcation, the relaxation times of both
 the solution and the memory kernel become arbitrarily large, and hence
 adapted numerical integration schemes are needed to treat the MCT equations.
+
+At the moment, `mcts-py` is not yet a fully performant solver. It makes
+heavy use for the `numba` just-in-time compiler, but this leads to relatively
+long warm-up times when running even simple code. This code base is mostly
+intended to provide an easy entry point for people wanting to understand,
+use, modify and extend the core numerics behind MCT.
+
+
+.. automodule:: mct
 
 Structure Factors
 =================
