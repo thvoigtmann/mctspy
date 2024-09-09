@@ -303,7 +303,21 @@ class tagged_particle_q0 (model_base):
         self.base.h5save(grp2)
 
 class tagged_particle_ngp (tagged_particle_q0):
+    """Standard model for the non-Gaussian parameter.
+    """
     def __init__ (self, base_model):
+        """Initialize a NGP model.
+
+        Parameters
+        ----------
+        base_model : object
+            A model representing the mean-squared displacement (MSD,
+            i.e. zero-wavenumber limit of a tagged-particle kernel model).
+            In particular, this model must itself define a base that
+            corresponds to the finite-wavenumber tagged-particle kernel,
+            which in turn nneds to define a base that is the collective
+            finite-wavenumber kernel.
+        """
         tagged_particle_q0.__init__ (self, base_model.base)
         self.msdbase = base_model
     #def __init__ (self, base_model):
@@ -318,7 +332,14 @@ class tagged_particle_ngp (tagged_particle_q0):
     #    cs = self.base.base.cs
     #    self.V = pre * (self.base.base.q**2 * cs)**2 * sk
     def make_kernel (self, ngpm, ngpphi, i, t):
-        # ngpphi is (1-a2(t))dr2(t)^2
+        r"""Kernel factory for NGP calculations.
+
+        This works on a pair of correlation functions, the first is the
+        NGP function :math:`a(t)=(1-\alpha_2(t))\delta r^2(t)^2`,
+        and the second is the MSD itself. The two memory kernels that are
+        returned are the :math:`m^s_0(t)` and :math:`\tilde m^s_0(t)`
+        defined in the MCT equation for the NGP.
+        """
         # since we inherit from tagged_particle_q0,
         # the "base" is phis, and its "base" is phi
         phisbase_phi = self.base.phi

@@ -273,11 +273,6 @@ def _ngp_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter,
 
 class non_gaussian_parameter (correlator):
     """Solver for the non-Gaussian parameter.
-
-    Note
-    ----
-    This solves for a(t)=(1+a2(t))msd(t)^2 in component 0
-    Component 1 of phi will be filled with the MSD
     """
 
     def initial_values (self, imax=50):
@@ -296,6 +291,12 @@ class non_gaussian_parameter (correlator):
         self.iend = iend
 
     def solve_block (self, istart, iend):
+        r"""
+        Note
+        ----
+        This solves for :math:`a(t)=(1+\alpha_2(t))\delta r^2(t)^2`
+        in component 0. Component 1 of phi will be filled with the MSD
+        """
         self.phi_[istart:iend,1] = self.model.phi2()[istart:iend,0]
         _ngp_solve_block (istart, iend, self.h, self.model.Bq()/self.h, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy, (istart<self.blocksize//2))
 

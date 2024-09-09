@@ -62,8 +62,12 @@ def g2(f,x,x0,x1):
 
 
 
-# think of making this a subclass of simple_liquid_model?
 class simple_liquid_model_2d (model_base):
+    """Simple liquid model, two-dimensional version.
+
+    This implements the standard MCT memory kernel in two dimensions.
+    The integration is based on the procedure outlined by Caraglio et al (2020).
+    """
     def __init__ (self, Sq, q, D0=1.0):
         self.rho = Sq.density()
         self.q = q
@@ -97,6 +101,13 @@ class simple_liquid_model_2d (model_base):
                     print(qi,ki,x)
             quit()
     def make_kernel (self, m, phi, i, t):
+        """Kernel factory, two-dimensional MCT for simple liquids.
+
+        Returns a numba-jit kernel method that implements the integration
+        of the memory kernel, taking care of the Jacobian in two wave-vector
+        dimensions that contains a square-root singularity, treated with
+        a Filon-Tuck-type weighted-trapezoidal integration method.
+        """
         q = self.q
         M = self.M
         pre = self.rho*self.sq/(8*np.pi**2*q**2)

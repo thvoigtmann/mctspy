@@ -1,9 +1,11 @@
 import numpy as np
 import scipy
 
-# as per Caraglio quoting FMT for hard disks
-# expression from Thorneywork.2018 (where we also find the mixture version)
 class hssFMT2d (object):
+    """Structure factor for 2d hard disks, fundamental measure theory (FMT).
+
+    This implements the expression derived in Thorneywork.2018.
+    """
     def __init__ (self, eta):
         self.eta = eta
     def density (self):
