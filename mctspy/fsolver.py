@@ -20,7 +20,22 @@ def _fsolve (f, m, W, phi0, kernel, M, accuracy, maxiter):
         if not iterations%100: print("iter",iterations,np.mean(np.abs(newf-f[0])))
 
 class nonergodicity_parameter (object):
+    """Solver for the nonergodicity parameter of a simple liquid
+
+    This implements a robust iteration scheme to solve for the NEP.
+    """
     def __init__ (self, model, accuracy=1e-12, maxiter=1000000):
+        """Initialization of the NEP solver.
+
+        Parameters
+        ----------
+        model : object
+            MCT model defining the memory kernel for the NEP.
+        accuracy : float, default: 1e-12
+            Accuracy at which to terminate the iterative solution scheme.
+        maxiter : int
+            Maximum number of iterations, to ensure termination.
+        """
         self.model = model
         self.accuracy = accuracy
         self.maxiter = maxiter
@@ -30,6 +45,12 @@ class nonergodicity_parameter (object):
         self.jit_kernel = model.get_kernel(self.m,self.f,0,0.0)
 
     def solve (self):
+        """Solve for the nonergodicity parameter.
+
+        Result: The object's field `f` will be set to the NEP values,
+        but note that `f` will have shape (1,M) for a model with M
+        correlator entries, so that `f[0]` is the actual NEP.
+        """
         _fsolve(self.f, self.m, self.model.Wq(), self.model.phi0(), self.jit_kernel, len(self.model), self.accuracy, self.maxiter)
 
 
@@ -67,7 +88,8 @@ def _ehatsolve(ehat, dmhat, f, M, maxiter, accuracy):
     return eval2_
 
 class eigenvalue (object):
-
+    """Critical eigenvalue solver for a simple liquid.
+    """
     def __init__ (self, nep, accuracy=1e-12, maxiter=1000000):
         self.nep = nep
         self.accuracy = accuracy
@@ -79,6 +101,11 @@ class eigenvalue (object):
         self.dm2 = self.nep.model.get_dm2(m,f,f)
 
     def solve (self):
+        """Solve for the critical eigenvectors.
+
+        This calculates the right- and left critical eigenvector, the
+        corresponding eigenvalues, and the exponent parameter.
+        """
         f = self.nep.f[0]
         model = self.nep.model
         self.e = np.zeros(len(model))

@@ -220,7 +220,8 @@ def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter,
 
 
 class mean_squared_displacement (correlator):
-
+    """Solver for the mean-squared displacement.
+    """
     def initial_values (self, imax=50):
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
