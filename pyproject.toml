@@ -1,0 +1,26 @@
+[build-system]
+requires = [ "hatchling" ]
+build-backend = "hatchling.build"
+
+[project]
+name = "mctspy"
+version = "0.0.1"
+description = "MCT solver package in python"
+readme = "README.md"
+requires-python = ">=3.11"
+
+authors = [
+  { name = "thvoigtmann", email = "thomas.voigtmann@dlr.de" },
+]
+
+classifiers = [
+]
+
+dependencies = [
+    "numpy",
+    "scipy",
+    "numba",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/thvoigtmann/mctspy"
