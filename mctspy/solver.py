@@ -7,7 +7,7 @@ import h5py
 from .__util__ import model_base, loaded_model
 
 
-@njit(cache=True)
+@njit
 def _decimize (phi, m, dPhi, dM, blocksize):
     halfblocksize = blocksize//2
     imid = halfblocksize//2
@@ -25,7 +25,7 @@ def _decimize (phi, m, dPhi, dM, blocksize):
         di = i+i
         phi[i] = phi[di]
         m[i] = m[di]
-@njit(cache=True)
+@njit
 def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments):
     A = dM[1] + Wq + 1.5*Bq / h
     B = (-dPhi[1] + phi[0]) / A
@@ -310,7 +310,7 @@ class correlator (object):
             newself.solved = attrs['solved_blocks']
         return newself
 
-@njit(cache=True)
+@njit
 def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments):
     A = dM[1] + 1.5*nutmp
 
@@ -360,7 +360,7 @@ class mean_squared_displacement (correlator):
         return 'MSD'
 
 
-@njit(cache=True)
+@njit
 def _ngp_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments):
     A = dM[1] + 1.5*nutmp
 
