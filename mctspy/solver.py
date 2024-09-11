@@ -60,21 +60,92 @@ def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, ac
 
 
 class correlator (object):
-    def __init__ (self, blocksize=256, h=1e-9, blocks=60,
-                  maxiter=10000, accuracy=1e-9, store=False,
-                  nu=1.0, model = model_base, base = None):
+    """Class for calculating MCT correlators in the time domain.
+
+    This sets up the standard solver developed for MCT-type equations,
+    using a block-wise regular time-domain grid, and a "decimation"
+    procedure doubling the step size from block to block.
+
+    Notes
+    -----
+    The methods defined here for the solver will usually not be called
+    directly, but from the `solve_all` method of the correlator stack.
+    The `correlator` object will then be filled with the solution arrays.
+    """
+    def __init__ (self, blocksize=256, h=1e-9, blocks=60, Tend=0.0,
+                  maxinit=50, maxiter=10000, accuracy=1e-9, store=False,
+                  model = model_base, base = None):
+        """Initialize the correlator.
+
+        This initializes some numerical parameters needed for the
+        time-domain solutions of MCT. The solution is performed on
+        a block-wise regular grid, each with equidistant time steps,
+        doubling the time step from block to block.
+
+        Parameters
+        ----------
+        blocksize : int
+            Number of equidistant time steps per block. Will be adjusted
+            to be divisible by four.
+        h : float
+            Stepsize in the first block.
+        blocks : int
+            Number of blocks to solve for.
+        Tend : float, optional
+            If larger than zero, fix the number of blocks such that
+            the solution at least span the times up to `Tend`.
+            If given, the user-specified value of `blocks` will be ignored,
+            but both `blocksize` and `h` will be kept. The actual
+            final time reached by the solver can be larger than `Tend`.
+        maxinit : int, optional
+            Number of points in the first block to initialize from a
+            short-time expansion of the equations. Must be smaller than
+            half the blocksize.
+        maxiter : int, optional
+            Maximum number of iterations taken per time step.
+        accuracy : float, optional
+            Accuracy goal for the iterations taken at each time step.
+        store : bool, default: False
+            If set to True, the full solutions will be stored in memory.
+            This is needed for later processing in the main program, and
+            for saving. If False, only the last block is kept.
+            Mostly there for historical reasons and to save some memory
+            if needed.
+        model : model_base
+            The actual MCT model to solve. This object needs to define
+            at least the function returning the value of the memory kernel
+            given the current correlator values and will be repeatedly
+            called during the iteration for each time step.
+        base : correlator, optional
+            In case of models that refer to underlying base models, the
+            memory-kernel implementation usually assumes the underlying model
+            to have been solved one the same time grid. This parameter
+            then should point to the underlying correlator for that model,
+            and the values of `h`, `blocksize`, and `blocks` will be copied
+            from there instead of taking the ones supplied here.
+
+        Notes
+        -----
+        The accuracy of the solution is determined primarily by the
+        parameters `blocksize` and `h`.
+        """
         if base is None:
             self.h0 = h
-            self.blocks = blocks
-            self.halfblocksize = int(blocksize/4)*2
+            self.halfblocksize = (blocksize//4)*2
             self.blocksize = self.halfblocksize * 2
+            if Tend > 0.:
+                self.blocks = 1 + int(np.ceil(np.log(Tend/self.h0/(self.blocksize-1))/np.log(2.)))
+                print("adjusting to",self.blocks,"blocks")
+            else:
+                self.blocks = blocks
         else:
             self.h0 = base.h0
             self.blocks = base.blocks
-            self.halfblocksize = base.halfblocksize
             self.blocksize = base.blocksize
+            self.halfblocksize = blocksize//2
             #self.base = base
         self.h = self.h0
+        self.maxinit = maxinit
         self.mdimen = len(model)
         self.phi_ = np.zeros((self.blocksize,self.mdimen))
         self.m_ = np.zeros((self.blocksize,self.mdimen))
@@ -95,7 +166,15 @@ class correlator (object):
 
         self.solved = -2
 
-    def initial_values (self, imax=50):
+    def initial_values (self, imax):
+        """Initialize with short-time expansion.
+
+        Parameters
+        ----------
+        imax : int
+            Number of time steps to initialize. Will be adjusted to be
+            less than half the blocksize.
+        """
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
         phi0 = self.model.phi0()
@@ -124,9 +203,20 @@ class correlator (object):
     # does not call the jitted _solve_block directly because
     # for example the MSD solver wants to put its own implementation there
     def solve_first (self):
+        """Solver interface, solve first half of time-domain block.
+
+        This should be the first method called to solve the correlators.
+        It initializes a given number of points from a short-time expansion,
+        and fills the first half of the first block by calling the solver.
+
+        Notes
+        -----
+        If `store` is True, the solver keeps track of whether the solutions
+        are already in memory, and only calls the `solve_block` if needed.
+        """
         self.h = self.h0
         if not self.store or not self.solved >= -1:
-            self.initial_values ()
+            self.initial_values (self.maxinit)
             self.solve_block (self.iend, self.halfblocksize)
             if self.store:
                 N2 = self.halfblocksize
@@ -141,6 +231,17 @@ class correlator (object):
             self.dPhi_[1:N2,:] = (self.phi_[:N2-1,:] + self.phi_[1:N2,:])/2.
             self.dM_[1:N2,:] = (self.m_[:N2-1,:] + self.m_[1:N2,:])/2.
     def solve_next (self, d):
+        """Solver interface, solve in a given block.
+
+        This assumes that the first half of the block has been pre-filled
+        will valid solutions, and then completes the solutions in the block.
+        The assumption will be valid if `solve_first` has been called before.
+
+        Notes
+        -----
+        If `store` is True, the solver keeps track of whether the solutions
+        are already in memory, and only calls the `solve_block` if needed.
+        """
         if not self.store or not self.solved >= d:
             self.solve_block (self.halfblocksize, self.blocksize)
             if self.store:
@@ -157,6 +258,15 @@ class correlator (object):
             self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:]
 
     def save (self, file):
+        """Save the correlator data to the given file.
+
+        The data will be stored in the mcspy h5 file format.
+
+        Parameters
+        ----------
+        file : str
+            Filename.
+        """
         if not self.store or not self.solved > -2:
             return # should throw an exception
         with h5py.File(file, 'w') as f:
@@ -180,6 +290,13 @@ class correlator (object):
         return 'phi'
     @staticmethod
     def load (file):
+        """Load correlator from h5 file.
+
+        This is a static method that returns a newly created
+        correlator object holding data read from disk. It can be
+        used as a base correlator object for the calculation of
+        models that need the loaded data as a reference.
+        """
         with h5py.File(file, 'r') as f:
             attrs = f['correlator/time_domain'].attrs
             newself = correlator(
@@ -296,7 +413,7 @@ class non_gaussian_parameter (correlator):
         Note
         ----
         This solves for :math:`a(t)=(1+\alpha_2(t))\delta r^2(t)^2`
-        in component 0. Component 1 of phi will be filled with the MSD
+        in component 0. Component 1 of phi will be filled with the MSD.
         """
         self.phi_[istart:iend,1] = self.model.phi2()[istart:iend,0]
         _ngp_solve_block (istart, iend, self.h, self.model.Bq()/self.h, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy, (istart<self.blocksize//2))
