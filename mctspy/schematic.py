@@ -127,11 +127,7 @@ class f12gammadot_tensorial_model (f12gammadot_model):
         return 1.0 / (1. + (self.nu*I1 + (1-self.nu)*I2 - 3)/self.gammac**2)
     def kernel_prefactor (self, trange):
         if self.use_hhat:
-            print ("CALC hhat",trange)
-            res = np.array([self.hhat(t) for t in trange])
-            print (res)
-            print ("DONE")
-            return res
+            return np.array([self.hhat(t) for t in trange])
         else:
             return np.ones_like(trange)
 

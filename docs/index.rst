@@ -57,6 +57,8 @@ and the models defining the specific form of the memory kernel.
 In particular this means that the correlator classes implement the
 suitable solvers for their equations, while the model classes implement
 the numerics to evaluate the mode-coupling functionals.
+Often, there is a close correspondence between a correlator/solver and
+a specific model, but in principle, the correlator class is more generic.
 
 Most MCT functionals take as input the static structure factor. While
 these are not strictly part of MCT, we also introduce a group of
