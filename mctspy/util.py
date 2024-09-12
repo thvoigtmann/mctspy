@@ -3,7 +3,35 @@ import scipy
 from .solver import _decimize
 
 class CorrelatorStack(list):
-    def solve_all (self, callback=lambda d,i1,i2,corr:None):
+    def solve_all (self, callback=lambda d,i1,i2,corr:None, stop_on_zero=False):
+        """Solve all correlators in the list.
+
+        This method calls the solver for each correlator in the list,
+        iterating through the blocks. For the first block, initialization
+        and the solver are called for the first half, and then for each
+        second half of a block, the loop is to call the solver, and then
+        decimize.
+
+        Parameters
+        ----------
+        callback : callable, optional
+            If set, should be a function taking four arguments: the current
+            block number, the first index in the block, the last index,
+            and the list of correlators currently being solved.
+            This is called after the solution of each half-block, but before
+            decimation, so that for example the currently obtained solutions
+            can be stored.
+        stop_on_zero : bool, default: False
+            If set, the solver-loop will stop as soon as all correlators
+            are zero in the last half-block that has been solved.
+
+        Notes
+        -----
+        The iteration over the blocks is the outer loop, so that each
+        correlator/model combination can rely on the fact that the base models
+        and correlator objects store the solution arrays for the current
+        block. They thus also work even if the full solutions are never stored.
+        """ 
         if not len(self): return
         blocksize = self[0].blocksize
         halfblocksize = self[0].halfblocksize
@@ -15,8 +43,15 @@ class CorrelatorStack(list):
             for _phi_ in self:
                 _phi_.solve_next (d)
             callback (d, halfblocksize, blocksize, self)
+            stop = 0
             for _phi_ in self:
                 _phi_.decimize ()
+                if stop_on_zero \
+                    and np.isclose(_phi_.phi_[halfblocksize],0).all() \
+                    and np.isclose(_phi_.phi_[-1],0).all():
+                    stop += 1
+            if stop == len(self):
+                break
 
 
 def regula_falsi(f,x0,x1,accuracy=1e-8,maxiter=10000):
