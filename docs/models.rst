@@ -111,3 +111,27 @@ Two-dimensional MCT
     Fourier transform.
 
 
+
+Schematic Models
+----------------
+.. include:: <isolat1.txt>
+
+.. autoclass:: mctspy.f12model
+    :members:
+    :inherited-members:
+
+.. autoclass:: mctspy.sjoegren_model
+    :members:
+    :inherited-members:
+
+.. autoclass:: mctspy.bosse_krieger_model
+    :members:
+    :inherited-members:
+
+.. autoclass:: mctspy.f12gammadot_model
+    :members:
+    :inherited-members:
+
+.. autoclass:: mctspy.f12gammadot_tensorial_model
+    :members:
+    :inherited-members:

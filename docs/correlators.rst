@@ -76,5 +76,10 @@ the magnitude of the wave vector, :math:`q=|\vec q|`.
     temporal range where the data is plotted.
 
 
+High-level interface
+--------------------
 
+.. autoclass:: mctspy.CorrelatorStack
+    :members:
+    :inherited-members:
 
