@@ -26,11 +26,13 @@ def _decimize (phi, m, dPhi, dM, blocksize):
         phi[i] = phi[di]
         m[i] = m[di]
 @njit
-def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments):
-    A = dM[1] + Wq + 1.5*Bq / h
-    B = (-dPhi[1] + phi[0]) / A
+def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments, pre_m):
 
     for i in range(istart,iend):
+        mpre = pre_m[i-istart]
+        A = mpre*dM[1] + Wq + 1.5*Bq / h
+        B = mpre*(-dPhi[1] + phi[0]) / A
+
         ibar = i//2
         C = -(m[i-1]*dPhi[1] + phi[i-1]*dM[1])
         for k in range(2,ibar+1):
@@ -39,7 +41,7 @@ def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, ac
         if (i-ibar > ibar):
             C += (phi[i-ibar] - phi[i-ibar-1]) * dM[k]
         C += m[i-ibar] * phi[ibar]
-        C += (-2.0*phi[i-1] + 0.5*phi[i-2]) * Bq/h
+        C = mpre*C + (-2.0*phi[i-1] + 0.5*phi[i-2]) * Bq/h
         C = C/A
 
         iterations = 0
@@ -197,7 +199,11 @@ class correlator (object):
     # core interface, can be reimplemented by derived solvers
     # this is not safe to be reused with save/restore functionality
     def solve_block (self, istart, iend):
-        _solve_block (istart, iend, self.h, self.model.Bq(), self.model.Wq(), self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2))
+        if 'kernel_prefactor' in dir(self.model):
+            pre_m = self.model.kernel_prefactor(np.arange(istart,iend)*self.h)
+        else:
+            pre_m = np.ones_like(range(istart,iend))
+        _solve_block (istart, iend, self.h, self.model.Bq(), self.model.Wq(), self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2), pre_m)
 
     # new interface with reconstruction of already solved cases
     # does not call the jitted _solve_block directly because
