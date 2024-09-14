@@ -18,7 +18,6 @@ the magnitude of the wave vector, :math:`q=|\vec q|`.
     :members:
     :inherited-members:
 
-    .. automethod:: __init__
 
 .. autoclass:: mctspy.mean_squared_displacement
     :members:
@@ -81,5 +80,4 @@ High-level interface
 
 .. autoclass:: mctspy.CorrelatorStack
     :members:
-    :inherited-members:
 

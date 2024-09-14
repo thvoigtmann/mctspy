@@ -68,8 +68,53 @@ class correlator (object):
     using a block-wise regular time-domain grid, and a "decimation"
     procedure doubling the step size from block to block.
 
+    Parameters
+    ----------
+    blocksize : int
+        Number of equidistant time steps per block. Will be adjusted
+        to be divisible by four.
+    h : float
+        Stepsize in the first block.
+    blocks : int
+        Number of blocks to solve for.
+    Tend : float, optional
+        If larger than zero, fix the number of blocks such that
+        the solution at least span the times up to `Tend`.
+        If given, the user-specified value of `blocks` will be ignored,
+        but both `blocksize` and `h` will be kept. The actual
+        final time reached by the solver can be larger than `Tend`.
+    maxinit : int, optional
+        Number of points in the first block to initialize from a
+        short-time expansion of the equations. Must be smaller than
+        half the blocksize.
+    maxiter : int, optional
+        Maximum number of iterations taken per time step.
+    accuracy : float, optional
+        Accuracy goal for the iterations taken at each time step.
+    store : bool, default: False
+        If set to True, the full solutions will be stored in memory.
+        This is needed for later processing in the main program, and
+        for saving. If False, only the last block is kept.
+        Mostly there for historical reasons and to save some memory
+        if needed.
+    model : model_base
+        The actual MCT model to solve. This object needs to define
+        at least the function returning the value of the memory kernel
+        given the current correlator values and will be repeatedly
+        called during the iteration for each time step.
+    base : correlator, optional
+        In case of models that refer to underlying base models, the
+        memory-kernel implementation usually assumes the underlying model
+        to have been solved one the same time grid. This parameter
+        then should point to the underlying correlator for that model,
+        and the values of `h`, `blocksize`, and `blocks` will be copied
+        from there instead of taking the ones supplied here.
+
     Notes
     -----
+    The accuracy of the solution is determined primarily by the
+    parameters `blocksize` and `h`.
+
     The methods defined here for the solver will usually not be called
     directly, but from the `solve_all` method of the correlator stack.
     The `correlator` object will then be filled with the solution arrays.
@@ -77,60 +122,6 @@ class correlator (object):
     def __init__ (self, blocksize=256, h=1e-9, blocks=60, Tend=0.0,
                   maxinit=50, maxiter=10000, accuracy=1e-9, store=False,
                   model = model_base, base = None):
-        """Initialize the correlator.
-
-        This initializes some numerical parameters needed for the
-        time-domain solutions of MCT. The solution is performed on
-        a block-wise regular grid, each with equidistant time steps,
-        doubling the time step from block to block.
-
-        Parameters
-        ----------
-        blocksize : int
-            Number of equidistant time steps per block. Will be adjusted
-            to be divisible by four.
-        h : float
-            Stepsize in the first block.
-        blocks : int
-            Number of blocks to solve for.
-        Tend : float, optional
-            If larger than zero, fix the number of blocks such that
-            the solution at least span the times up to `Tend`.
-            If given, the user-specified value of `blocks` will be ignored,
-            but both `blocksize` and `h` will be kept. The actual
-            final time reached by the solver can be larger than `Tend`.
-        maxinit : int, optional
-            Number of points in the first block to initialize from a
-            short-time expansion of the equations. Must be smaller than
-            half the blocksize.
-        maxiter : int, optional
-            Maximum number of iterations taken per time step.
-        accuracy : float, optional
-            Accuracy goal for the iterations taken at each time step.
-        store : bool, default: False
-            If set to True, the full solutions will be stored in memory.
-            This is needed for later processing in the main program, and
-            for saving. If False, only the last block is kept.
-            Mostly there for historical reasons and to save some memory
-            if needed.
-        model : model_base
-            The actual MCT model to solve. This object needs to define
-            at least the function returning the value of the memory kernel
-            given the current correlator values and will be repeatedly
-            called during the iteration for each time step.
-        base : correlator, optional
-            In case of models that refer to underlying base models, the
-            memory-kernel implementation usually assumes the underlying model
-            to have been solved one the same time grid. This parameter
-            then should point to the underlying correlator for that model,
-            and the values of `h`, `blocksize`, and `blocks` will be copied
-            from there instead of taking the ones supplied here.
-
-        Notes
-        -----
-        The accuracy of the solution is determined primarily by the
-        parameters `blocksize` and `h`.
-        """
         if base is None:
             self.h0 = h
             self.halfblocksize = (blocksize//4)*2
