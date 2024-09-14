@@ -52,20 +52,20 @@ def output (d, istart, iend, correlator_array):
     print ("block",d,"\r",end='')
 
 
-f = mct.nonergodicity_parameter (model)
-f.solve()
-print(f.f,f.m)
-
-fs = mct.nonergodicity_parameter (model_s)
-fs.solve()
-print(fs.f,fs.m)
-
-ev = mct.eigenvalue (f)
-ev.solve()
-print ("# eigenvalue = {:f} (check ehat: {:f})".format(ev.eval,ev.eval2))
-print ("# e = {}".format(ev.e))
-print ("# ehat = {}".format(ev.ehat))
-print ("# lambda = {:f}".format(ev.lam))
+#f = mct.nonergodicity_parameter (model)
+#f.solve()
+#print(f.f,f.m)
+#
+#fs = mct.nonergodicity_parameter (model_s)
+#fs.solve()
+#print(fs.f,fs.m)
+#
+#ev = mct.eigenvalue (f)
+#ev.solve()
+#print ("# eigenvalue = {:f} (check ehat: {:f})".format(ev.eval,ev.eval2))
+#print ("# e = {}".format(ev.e))
+#print ("# ehat = {}".format(ev.ehat))
+#print ("# lambda = {:f}".format(ev.lam))
 
 
 correlators.solve_all(callback=output)
