@@ -21,12 +21,16 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
-    'sphinx.ext.intersphinx'
+    'sphinx.ext.intersphinx',
+    'myst_nb'
 ]
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
+nb_custom_formats = {
+  ".mystnb": [ "jupytext.reads", { "fmt": "mystnb" } ]
+}
 
 
 # -- Options for HTML output -------------------------------------------------
