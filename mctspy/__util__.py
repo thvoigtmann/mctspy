@@ -26,6 +26,10 @@ def void(nparray):
 class model_base (object):
     def __len__ (self):
         return 1
+    def matrix_dimension (self):
+        return 1
+    def scalar (self):
+        return True
     def phi0 (self):
         return np.ones(len(self))
     def Wq (self):

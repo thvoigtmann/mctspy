@@ -18,40 +18,71 @@ def _fsolve (f, m, W, phi0, kernel, M, accuracy, maxiter):
             converged = True
             f[0] = newf
         if not iterations%100: print("iter",iterations,np.mean(np.abs(newf-f[0])))
+@njit
+def _fsolve_mat (f, m, W, phi0, WS, kernel, M, accuracy, maxiter):
+    iterations = 0
+    converged = False
+    lowval = False
+    newf = phi0.copy()
+    while (not converged and iterations < maxiter):
+        iterations+=1
+        f[0] = newf
+        kernel (m[0], f[0], 0, 0.)
+        #newf = phi0 + np.linalg.inv(W + m[0]) @ W
+        if 0 and not lowval:
+            for q in range(M):
+                newf[q] = phi0[q] - np.linalg.inv(W[q] + m[0][q]) @ WS[q]
+        else:
+            for q in range(M):
+                newf[q] = np.linalg.inv(W[q] + m[0][q]) @ m[0][q] @ phi0[q]
+        if not iterations%100: print (newf.reshape(-1)[:4], f[0].reshape(-1)[:4], newf.reshape(-1)[:4]-f[0].reshape(-1)[:4])
+        if np.isclose (newf.reshape(-1), f[0].reshape(-1), rtol=accuracy, atol=0.0).all():
+            converged = True
+            f[0] = newf
+        if np.isclose (newf.reshape(-1), 0.0, rtol=0.0, atol=10*accuracy).all():
+            # suspect liquid solution
+            lowval = True
+        if not iterations%100: print("iter",iterations,np.mean(np.abs(newf-f[0])))
 
 class nonergodicity_parameter (object):
     """Solver for the nonergodicity parameter of a simple liquid
 
     This implements a robust iteration scheme to solve for the NEP.
+
+    Parameters
+    ----------
+    model : object
+        MCT model defining the memory kernel for the NEP.
+    accuracy : float, default: 1e-12
+        Accuracy at which to terminate the iterative solution scheme.
+    maxiter : int
+        Maximum number of iterations, to ensure termination.
     """
     def __init__ (self, model, accuracy=1e-12, maxiter=1000000):
-        """Initialization of the NEP solver.
-
-        Parameters
-        ----------
-        model : object
-            MCT model defining the memory kernel for the NEP.
-        accuracy : float, default: 1e-12
-            Accuracy at which to terminate the iterative solution scheme.
-        maxiter : int
-            Maximum number of iterations, to ensure termination.
-        """
         self.model = model
         self.accuracy = accuracy
         self.maxiter = maxiter
-        self.f = np.zeros((1,len(model)))
-        self.m = np.zeros((1,len(model)))
-        self.model.set_base(self.f)
-        self.jit_kernel = model.get_kernel(self.m,self.f,0,0.0)
+        self.dim = model.matrix_dimension()
+        self.M = len(model)
+        self.f_ = np.zeros((1,self.M*self.dim**2))
+        self.m_ = np.zeros((1,self.M*self.dim**2))
+        self.model.set_base(self.f_)
+        self.jit_kernel = model.get_kernel(self.m_,self.f_,0,0.0)
 
     def solve (self):
         """Solve for the nonergodicity parameter.
 
         Result: The object's field `f` will be set to the NEP values,
-        but note that `f` will have shape (1,M) for a model with M
-        correlator entries, so that `f[0]` is the actual NEP.
+        and `m` to the corresponding memory kernel.
         """
-        _fsolve(self.f, self.m, self.model.Wq(), self.model.phi0(), self.jit_kernel, len(self.model), self.accuracy, self.maxiter)
+        if self.model.scalar():
+            _fsolve(self.f_, self.m_, self.model.Wq(), self.model.phi0(), self.jit_kernel, self.M, self.accuracy, self.maxiter)
+            self.f = self.f_[0]
+            self.m = self.m_[0]
+        else:
+            _fsolve_mat(self.f_.reshape(1,-1,self.dim,self.dim), self.m_.reshape(1,-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), self.model.phi0().reshape(-1,self.dim,self.dim), self.model.WqSq().reshape(-1,self.dim,self.dim), self.jit_kernel, self.M, self.accuracy, self.maxiter)
+            self.f = self.f_[0].reshape(-1,self.dim,self.dim)
+            self.m = self.m_[0].reshape(-1,self.dim,self.dim)
 
 
 @njit
@@ -94,8 +125,8 @@ class eigenvalue (object):
         self.nep = nep
         self.accuracy = accuracy
         self.maxiter = maxiter
-        nep.model.set_C (self.nep.f[0])
-        f, m = self.nep.f[0], self.nep.m[0]
+        nep.model.set_C (self.nep.f_[0])
+        f, m = self.nep.f_[0], self.nep.m_[0]
         self.dm = self.nep.model.get_dm(m,f,f)
         self.dmhat = self.nep.model.get_dmhat(m,f,f)
         self.dm2 = self.nep.model.get_dm2(m,f,f)
@@ -106,7 +137,7 @@ class eigenvalue (object):
         This calculates the right- and left critical eigenvector, the
         corresponding eigenvalues, and the exponent parameter.
         """
-        f = self.nep.f[0]
+        f = self.nep.f_[0]
         model = self.nep.model
         self.e = np.zeros(len(model))
         self.ehat = np.zeros(len(model))
