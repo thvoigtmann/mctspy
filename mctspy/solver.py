@@ -225,19 +225,22 @@ class correlator (object):
         phi0 = self.model.phi0()
         if self.model.scalar():
             tauinv = self.model.Wq() * phi0 / self.model.Bq()
+            for i in range(iend):
+                t = i*self.h0
+                self.phi_[i] = phi0 - tauinv * t
+                self.jit_kernel (self.m_[i], self.phi_[i], i, t)
         else:
             tauinv = np.zeros_like(phi0)
             Bq = self.model.Bq()
             WqSq = self.model.WqSq()
             for q in range(self.mdimen):
                 tauinv[q] = np.linalg.inv(Bq[q]) @ WqSq[q]
-        for i in range(iend):
-             t = i*self.h0
-             self.phi_[i] = (phi0 - tauinv * t).reshape(-1)
-             self.jit_kernel (self.m_[i].reshape(-1,self.dim,self.dim), self.phi_[i].reshape(-1,self.dim,self.dim), i, t)
+            for i in range(iend):
+                self.phi_[i] = (phi0 - tauinv * t).reshape(-1)
+                self.jit_kernel (self.m_[i].reshape(-1,self.dim,self.dim), self.phi_[i].reshape(-1,self.dim,self.dim), i, t)
         for i in range(1,iend):
-             self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
-             self.dM_[i] = 0.5 * (self.m_[i-1] + self.m_[i])
+            self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
+            self.dM_[i] = 0.5 * (self.m_[i-1] + self.m_[i])
         self.dPhi_[iend] = self.phi_[iend-1]
         self.dM_[iend] = self.m_[iend-1]
         self.iend = iend
