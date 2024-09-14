@@ -60,6 +60,49 @@ def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, ac
                     dPhi[i] = 0.5 * (phi[i-1] + phi[i])
                     dM[i] = 0.5 * (m[i-1] + m[i])
 
+@njit
+def _solve_block_mat (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, M, kernel, maxiter, accuracy, calc_moments):
+
+    Ainv = np.zeros_like(Wq)
+    B = np.zeros_like(Wq)
+    C = np.zeros_like(Wq)
+
+    for q in range(M):
+        Ainv[q] = np.linalg.inv(Wq[q] + dM[1,q] + Bq[q]*1.5/h)
+        B[q] = -dPhi[1,q] + phi[0,q]
+
+    for i in range(istart,iend):
+        ibar = i//2
+        for q in range(M):
+            C[q] = -( m[i-1,q] @ dPhi[1,q] + dM[1,q] @ phi[i-1,q] )
+        for k in range(2,ibar+1):
+            for q in range(M):
+                C[q] += (m[i-k+1,q] - m[i-k,q]) @ dPhi[k,q] \
+                      + dM[k,q] @ (phi[i-k+1,q] - phi[i-k,q])
+        if (i-ibar > ibar):
+            for q in range(M):
+                C[q] += dM[k,q] @ (phi[i-ibar,q] - phi[i-ibar-1,q])
+        for q in range(M):
+            C[q] += m[i-ibar,q] @ phi[ibar,q]
+            C[q] += Bq[q] @ (-2*phi[i-1,q] + 0.5*phi[i-2,q]) / h
+            C[q] = Ainv[q] @ C[q]
+
+        iterations = 0
+        converged = False
+        newphi = phi[i-1].copy()
+        while (not converged and iterations < maxiter):
+            phi[i] = newphi
+            kernel (m[i], phi[i], i, h*i)
+            for q in range(M):
+                newphi[q] = Ainv[q] @ m[i,q] @ B[q] - C[q]
+            iterations += 1
+            if np.isclose(newphi.reshape(-1), phi[i].reshape(-1),
+                          rtol=accuracy, atol=accuracy).all():
+                converged = True
+                phi[i,...] = newphi
+                if calc_moments:
+                    dPhi[i] = 0.5 * (phi[i-1] + phi[i])
+                    dM[i] = 0.5 * (m[i-1] + m[i])
 
 class correlator (object):
     """Class for calculating MCT correlators in the time domain.
@@ -140,15 +183,20 @@ class correlator (object):
         self.h = self.h0
         self.maxinit = maxinit
         self.mdimen = len(model)
-        self.phi_ = np.zeros((self.blocksize,self.mdimen))
-        self.m_ = np.zeros((self.blocksize,self.mdimen))
-        self.dPhi_ = np.zeros((self.halfblocksize+1,self.mdimen))
-        self.dM_ = np.zeros((self.halfblocksize+1,self.mdimen))
+        self.dim = model.matrix_dimension()
+        self.phi_ = np.zeros((self.blocksize,self.mdimen*self.dim**2))
+        self.m_ = np.zeros((self.blocksize,self.mdimen*self.dim**2))
+        self.dPhi_ = np.zeros((self.halfblocksize+1,self.mdimen*self.dim**2))
+        self.dM_ = np.zeros((self.halfblocksize+1,self.mdimen*self.dim**2))
         self.store = store
         if store:
             self.t = np.zeros(self.halfblocksize*(self.blocks+1))
-            self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen))
-            self.m = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen))
+            if model.scalar()==1:
+                self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen*self.dim**2))
+                self.m = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen*self.dim**2))
+            else:
+                self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen,self.dim,self.dim))
+                self.m = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen,self.dim,self.dim))
 
         self.maxiter = maxiter
         self.accuracy = accuracy
@@ -171,11 +219,18 @@ class correlator (object):
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
         phi0 = self.model.phi0()
-        tauinv = self.model.Wq() * phi0 / self.model.Bq()
+        if self.model.scalar():
+            tauinv = self.model.Wq() * phi0 / self.model.Bq()
+        else:
+            tauinv = np.zeros_like(phi0)
+            Bq = self.model.Bq()
+            WqSq = self.model.WqSq()
+            for q in range(self.mdimen):
+                tauinv[q] = np.linalg.inv(Bq[q]) @ WqSq[q]
         for i in range(iend):
              t = i*self.h0
-             self.phi_[i] = phi0 - t*tauinv
-             self.jit_kernel (self.m_[i], self.phi_[i], i, t)
+             self.phi_[i] = (phi0 - tauinv * t).reshape(-1)
+             self.jit_kernel (self.m_[i].reshape(-1,self.dim,self.dim), self.phi_[i].reshape(-1,self.dim,self.dim), i, t)
         for i in range(1,iend):
              self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
              self.dM_[i] = 0.5 * (self.m_[i-1] + self.m_[i])
@@ -194,7 +249,12 @@ class correlator (object):
             pre_m = self.model.kernel_prefactor(np.arange(istart,iend)*self.h)
         else:
             pre_m = np.ones_like(range(istart,iend))
-        _solve_block (istart, iend, self.h, self.model.Bq(), self.model.Wq(), self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2), pre_m)
+        if self.model.scalar():
+            _solve_block (istart, iend, self.h, self.model.Bq(), self.model.Wq(), self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2), pre_m)
+        else:
+            if 'kernel_prefactor' in dir(self.model):
+                raise NotImplementedError
+            _solve_block_mat (istart, iend, self.h, self.model.Bq().reshape(-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), self.phi_.reshape(-1,self.mdimen,self.dim,self.dim), self.m_.reshape(-1,self.mdimen,self.dim,self.dim), self.dPhi_.reshape(-1,self.mdimen,self.dim,self.dim), self.dM_.reshape(-1,self.mdimen,self.dim,self.dim), self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2))
 
     # new interface with reconstruction of already solved cases
     # does not call the jitted _solve_block directly because
@@ -218,15 +278,19 @@ class correlator (object):
             if self.store:
                 N2 = self.halfblocksize
                 self.t[:N2] = self.h * np.arange(N2)
-                self.phi[:N2,:] = self.phi_[:N2,:]
-                self.m[:N2,:] = self.m_[:N2,:]
+                if self.model.scalar():
+                    self.phi[:N2,:] = self.phi_[:N2,:]
+                    self.m[:N2,:] = self.m_[:N2,:]
+                else:
+                    self.phi[:N2,:] = self.phi_[:N2,:].reshape(N2,self.mdimen,self.dim,self.dim)
+                    self.m[:N2,:] = self.m_[:N2,:].reshape(N2,self.mdimen,self.dim,self.dim)
             self.solved = -1
         else:
             N2 = self.halfblocksize
-            self.phi_[:N2,:] = self.phi[:N2,:]
-            self.m_[:N2,:] = self.m[:N2,:]
-            self.dPhi_[1:N2,:] = (self.phi_[:N2-1,:] + self.phi_[1:N2,:])/2.
-            self.dM_[1:N2,:] = (self.m_[:N2-1,:] + self.m_[1:N2,:])/2.
+            self.phi_[:N2,:] = self.phi[:N2,:].reshape(N2,-1)
+            self.m_[:N2,:] = self.m[:N2,:].reshape(N2,-1)
+            self.dPhi_[1:N2,:] = ((self.phi_[:N2-1,:] + self.phi_[1:N2,:])/2.).reshape(N2-1,-1)
+            self.dM_[1:N2,:] = ((self.m_[:N2-1,:] + self.m_[1:N2,:])/2.).reshape(N2-1,-1)
     def solve_next (self, d):
         """Solver interface, solve in a given block.
 
@@ -245,14 +309,18 @@ class correlator (object):
                 N2 = self.halfblocksize
                 N = self.blocksize
                 self.t[d*N2+N2:d*N2+N] = self.h * np.arange(N2,N)
-                self.phi[d*N2+N2:d*N2+N,:] = self.phi_[N2:,:]
-                self.m[d*N2+N2:d*N2+N,:] = self.m_[N2:,:]
+                if self.model.scalar():
+                    self.phi[d*N2+N2:d*N2+N,:] = self.phi_[N2:,:]
+                    self.m[d*N2+N2:d*N2+N,:] = self.m_[N2:,:]
+                else:
+                    self.phi[d*N2+N2:d*N2+N,:] = self.phi_[N2:,:].reshape(N2,self.mdimen,self.dim,self.dim)
+                    self.m[d*N2+N2:d*N2+N,:] = self.m_[N2:,:].reshape(N2,self.mdimen,self.dim,self.dim)
             self.solved = d
         else:
             N2 = self.halfblocksize
             N = self.blocksize
-            self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:]
-            self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:]
+            self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:].reshape(N2,-1)
+            self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:].reshape(N2,-1)
 
     def save (self, file):
         """Save the correlator data to the given file.

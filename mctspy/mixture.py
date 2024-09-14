@@ -28,6 +28,8 @@ class mixture_model (model_base):
         return False
     def phi0 (self):
         return self.sq
+    def Bq (self):
+        return np.ones((self.M,self.S,self.S))*np.diag(1/self.D0)
     def Wq (self):
         return (self.q**2)[:,None,None] * np.linalg.inv(self.sq)
     def WqSq (self):
