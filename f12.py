@@ -52,20 +52,20 @@ def output (d, istart, iend, correlator_array):
     print ("block",d,"\r",end='')
 
 
-#f = mct.nonergodicity_parameter (model)
-#f.solve()
-#print(f.f,f.m)
-#
-#fs = mct.nonergodicity_parameter (model_s)
-#fs.solve()
-#print(fs.f,fs.m)
-#
-#ev = mct.eigenvalue (f)
-#ev.solve()
-#print ("# eigenvalue = {:f} (check ehat: {:f})".format(ev.eval,ev.eval2))
-#print ("# e = {}".format(ev.e))
-#print ("# ehat = {}".format(ev.ehat))
-#print ("# lambda = {:f}".format(ev.lam))
+f = mct.nonergodicity_parameter (model)
+f.solve()
+print(f.f,f.m)
+
+fs = mct.nonergodicity_parameter (model_s)
+fs.solve()
+print(fs.f,fs.m)
+
+ev = mct.eigenvalue (f)
+ev.solve()
+print ("# eigenvalue = {:f} (check ehat: {:f})".format(ev.eval,ev.eval2))
+print ("# e = {}".format(ev.e))
+print ("# ehat = {}".format(ev.ehat))
+print ("# lambda = {:f}".format(ev.lam))
 
 
 correlators.solve_all(callback=output)
@@ -73,13 +73,15 @@ print("")
 
 
 # test re-running an already solved phi with a new phi_s
-#correlators2 = mct.CorrelatorStack([phi])
-#model_s2 = mct.sjoegren_model(args.vs,model)
-#phi_s2 = mct.correlator (model = model_s2, base=phi, store=True)
-#correlators2.append (phi_s2)
-#correlators2.solve_all(callback=output)
-#print("")
-#assert((phi_s2.phi==phi_s.phi).all())
+correlators2 = mct.CorrelatorStack([phi])
+model_s2 = mct.sjoegren_model(args.vs,model)
+phi_s2 = mct.correlator (model = model_s2, base=phi, store=True)
+correlators2.append (phi_s2)
+correlators2.solve_all(callback=output)
+print("")
+print(phi_s.phi)
+print(phi_s2.phi)
+assert((phi_s2.phi==phi_s.phi).all())
 
 plt.plot(phi.t,phi.phi)
 plt.plot(phi_gdot.t,phi_gdot.phi)

@@ -291,10 +291,14 @@ class correlator (object):
             self.solved = -1
         else:
             N2 = self.halfblocksize
-            self.phi_[:N2,:] = self.phi[:N2,:].reshape(N2,-1)
-            self.m_[:N2,:] = self.m[:N2,:].reshape(N2,-1)
-            self.dPhi_[1:N2,:] = ((self.phi_[:N2-1,:] + self.phi_[1:N2,:])/2.).reshape(N2-1,-1)
-            self.dM_[1:N2,:] = ((self.m_[:N2-1,:] + self.m_[1:N2,:])/2.).reshape(N2-1,-1)
+            if self.model.scalar():
+                self.phi_[:N2,:] = self.phi[:N2,:]
+                self.m_[:N2,:] = self.m[:N2,:]
+            else:
+                self.phi_[:N2,:] = self.phi[:N2,:].reshape(N2,self.mdimen*self.dim**2)
+                self.m_[:N2,:] = self.m[:N2,:].reshape(N2,self.mdimen*self.dim**2)
+            self.dPhi_[1:N2,:] = ((self.phi_[:N2-1,:] + self.phi_[1:N2,:])/2.)
+            self.dM_[1:N2,:] = ((self.m_[:N2-1,:] + self.m_[1:N2,:])/2.)
     def solve_next (self, d):
         """Solver interface, solve in a given block.
 
@@ -323,8 +327,12 @@ class correlator (object):
         else:
             N2 = self.halfblocksize
             N = self.blocksize
-            self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:].reshape(N2,-1)
-            self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:].reshape(N2,-1)
+            if self.model.scalar():
+                self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:]
+                self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:]
+            else:
+                self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:].reshape(N2,self.mdimen*self.dim**2)
+                self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:].reshape(N2,self.mdimen*self.dim**2)
 
     def save (self, file):
         """Save the correlator data to the given file.
