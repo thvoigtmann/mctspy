@@ -161,6 +161,10 @@ class correlator (object):
     The methods defined here for the solver will usually not be called
     directly, but from the `solve_all` method of the correlator stack.
     The `correlator` object will then be filled with the solution arrays.
+
+    If `store` is `True`, the fields `t`, `phi`, and `m` will be set
+    to contain the solutions. They have shape (T,M) for scalar models,
+    and shape (T,M,S,S) for matrix-valued models.
     """
     def __init__ (self, blocksize=256, h=1e-9, blocks=60, Tend=0.0,
                   maxinit=50, maxiter=10000, accuracy=1e-9, store=False,
