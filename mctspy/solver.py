@@ -195,7 +195,7 @@ class correlator (object):
         self.store = store
         if store:
             self.t = np.zeros(self.halfblocksize*(self.blocks+1))
-            if model.scalar()==1:
+            if model.scalar():
                 self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen*self.dim**2))
                 self.m = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen*self.dim**2))
             else:
