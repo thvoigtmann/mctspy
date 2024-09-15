@@ -107,7 +107,36 @@ Simple Liquids (2D)
 .. autoclass:: mctspy.structurefactors.hssFMT2d
     :members:
     :inherited-members:
+
+    The expression implemented here was given by Thorneywork et al. [2]_
+
+    .. math::
+
+        \begin{align}
+        c(q) &= \frac{\pi}{6(1-\varphi)^3}q^2\left[
+        -\frac54(1-\varphi)^2q^2J_0(q/2)^2
+        \right. \\ &\left.
+        +\left(4((\varphi-20)\varphi+7)+\frac54(1-\varphi)^2q^2\rigth)
+        J_1(q/2)^2 \right.\\ &\left.
+        +2(\varphi-13)(1-\varphi)qJ_1(q/2)J_0(q/2)\right]
+        \end{align}
+
+    with the Bessel functions :math:`J_n(x)`. For :math:`q=0` (technically,
+    any input value less than machine-epsilon), the analytical limit is
+    returned,
+
+    .. math::
+
+        c(0) = -\frac{\pi}{4}\frac{4-3\varphi+\varphi*2}{1-\varphi)^3}
+
+    which is consistent with :math:`S(0)=(1-\varphi)^3/(1+\varphi)`, the
+    equation of state from scaled-particle theory.
+
  
+    .. [2] A. L. Thorneywork, S. K. Schnyer, D. G. A. L. Aarts,
+           J. Horbach, R. Roth, R. P. A. Dullens,
+           Molec. Phys. 116, 3245 (2018), `DOI:10.1080/00268976.2018.1492745 <https://doi.org/10.1080/00268976.2018.1492745>`_
+
 
 Mixtures (3D)
 -------------
@@ -128,7 +157,7 @@ Mixtures (3D)
 
     The implementation is based on analytic expressions that follow from
     Fourier transforming the real-space expressions derived by Baxter
-    [2]_ using a Wiener-Hopf factorization method.
+    [3]_ using a Wiener-Hopf factorization method.
     This gives the DCF :math:`c_{\alpha\beta}(q)` directly, so that the
     structure factor matrix follows from the Ornstein-Zernike equation.
     For small wave numbers, these analytic expressions are expanded to
@@ -207,5 +236,5 @@ Mixtures (3D)
     unit matrix. The conventional static structure factor is obtained
     by multiplying with :math:`\boldsymbol\rho^{1/2}` from both sides again.
 
-    .. [2] R. J. Baxter, J. Chem. Phys. 52, 4559 (1970), `DOI:10.1063/1.1673684 <https://doi.org/10.1063/1.1673684>`_
+    .. [3] R. J. Baxter, J. Chem. Phys. 52, 4559 (1970), `DOI:10.1063/1.1673684 <https://doi.org/10.1063/1.1673684>`_
 
