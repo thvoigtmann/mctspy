@@ -33,6 +33,28 @@ Simple Liquids (3D)
         - q^4\left(\pi\alpha(1/210+\varphi/600)+\pi\beta/240\right)
         + {\mathcal O}(q^6)
 
+    The derivative of the DCF is also implemented analytically,
+
+    .. math::
+
+        \begin{align}
+        c'(q)&=-4\pi\alpha\left(\frac{\sin q}{q^2}+\frac3q\left(
+        \frac{\cos q}{q^2}-\frac{\sin q}{q^3}\right)\right)
+        -2\pi\alpha\varphi\left(\frac{\sin q}{q^2}+\frac6q\left(
+        \frac{\cos q}{q^2}-4\frac{\sin q}{q^3}-\frac{12\cos q}{q^4}
+        -\frac{24(1-\cos q-q\sin q)}{q^6}\right)\right)\\
+        &\qquad-8\pi\beta\left(\frac12\frac{\sin q}{q^2}+\frac2q\left(
+        \frac{\cos q}{q^2}+2\frac{1-\cos q-q\sin q}{q^4}\right)\right)
+        \end{align}
+
+    and for low values of the wave number
+
+    .. math::
+
+        c'(q)=\left(\pi\alpha\left(\frac4{15}+\frac{\varphi}{12}\right)
+        +\frac{2\pi\beta}{9}\right)q - \left(\pi\alpha\left(\frac{2}{105}
+        +\frac{\varphi}{150}\right)+\frac{\pi\beta}{60}\right)q^3
+
 
     .. [1] M. S. Wertheim, Phys. Rev. Lett. 10, 321 (1963), `DOI:10.1103/PhysRevLett.10.321 <https://doi.org/10.1103/PhysRevLett.10.321>`_
 

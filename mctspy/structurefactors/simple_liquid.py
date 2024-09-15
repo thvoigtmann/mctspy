@@ -42,12 +42,16 @@ class hssPY (object):
         cq3 = np.zeros_like(q)
         cq1[highq] = 4.*np.pi*self.alpha * (cosq/q2[highq] - sinq/q3[highq])
         cq2[highq] = 2.*np.pi*self.alpha*self.phi * \
-               (cosq/q2[highq] - 4*sinq/q3[highq] - 12*cosq/q4[highq] - 24*((1-cosq) - q[highq]*sinq)/q6)
-        cq3[highq] = 8.*np.pi*self.beta * (0.5*cosq/q2[highq] - sinq/q3[highq] + (1-cosq)/q4[highq])
+               (cosq/q2[highq] - 4*sinq/q3[highq] - 12*cosq/q4[highq] \
+                - 24*((1-cosq) - q[highq]*sinq)/q6)
+        cq3[highq] = 8.*np.pi*self.beta * \
+               (0.5*cosq/q2[highq] - sinq/q3[highq] + (1-cosq)/q4[highq])
         # for low q, calculate expansion in q
         cq1[lowq] = -np.pi*self.alpha/3. *(4.+self.phi) - np.pi*self.beta
-        cq2[lowq] = (np.pi*self.alpha * (2./15. + self.phi/24.) + np.pi*self.beta/9) * q2[lowq]
-        cq3[lowq] = -(np.pi * self.alpha * (1./210. + self.phi/600.) + np.pi*self.beta/240.)*q4[lowq]
+        cq2[lowq] = (np.pi*self.alpha * (2./15. + self.phi/24.) \
+                     + np.pi*self.beta/9) * q2[lowq]
+        cq3[lowq] = -(np.pi * self.alpha * (1./210. + self.phi/600.) \
+                     + np.pi*self.beta/240.)*q4[lowq]
         return cq1 + cq2 + cq3
     def Sq (self, q):
         """Return the structure factor and DCF.
@@ -65,8 +69,54 @@ class hssPY (object):
             c(q) evaluated on the given grid.
         """
         cq_ = self.cq(q)
-        # bigger than low-q
-        return 1.0 / (1.0 - self.phi*6/np.pi * cq_), cq_
+        sq_ = 1.0 / (1.0 - self.phi*6./np.pi * cq_)
+        # old code used explicit low-q expansion, but since we use
+        # a low-q expansion of cq, this doesn't really help much
+        #lowq = q<self.lowq
+        #q2 = q[lowq]**2
+        #q4 = q[lowq]**4
+        #eta = self.phi
+        #etasq = eta**2
+        #eta2 = (1+2.*eta)**2
+        #etacmp = (1.-eta)**4
+        #sq_[lowq] = etacmp/eta2 * (1 + eta/eta2 * \
+        #                           ((16.-11.*eta+4*etasq)/20.*q2 + \
+        #                           (-20.+386*eta-627*etasq+494*eta*etasq \
+        #                          -etasq*etasq*(173.-21*eta))/(700*eta2)*q4))
+        return sq_, cq_
+    def dcq_dq (self, q):
+        """Return derivative of the DCF.
+
+        Parameters
+        ----------
+        q : array_like
+            Grid of wave numbers where the DCF should be evaluated.
+
+        Returns
+        -------
+        cq : array_like
+            Derivative of the DCF evaluated on the given grid.
+        """
+        q2 = q*q;
+        q3 = q2*q;
+        highq = q>=self.lowq
+        lowq = q<self.lowq
+        q4 = q2[highq]**2
+        q6 = q4*q2[highq]
+        cosq, sinq = np.cos(q[highq]), np.sin(q[highq]);
+        dcq = np.zeros_like(q)
+        dcq[highq] = -4*np.pi*self.alpha * \
+            (sinq/q2[highq] + 3.*(cosq/q2[highq] - sinq/q3[highq])/q[highq]) \
+            - 2*self.phi * np.pi*self.alpha * \
+                (sinq/q2[highq] + 6*(cosq/q2[highq] - 4*sinq/q3[highq] \
+                - 12*cosq/q4 - 24*((1-cosq) - q[highq]*sinq)/q6)/q[highq]) \
+            - 8*np.pi*self.beta * (0.5*sinq/q2[highq] + 2*(cosq/q2[highq] \
+                                   + 2*((1-cosq) - q[highq]*sinq)/q4)/q[highq])
+        dcq[lowq] = (np.pi*self.alpha * (4./15. + self.phi/12.) \
+                     + 2.*np.pi*self.beta/9)*q[lowq] \
+                  - (np.pi*self.alpha * (2./105. + self.phi/150.) \
+                     + np.pi*self.beta/60.)*q3[lowq];
+        return dcq
 
 
 class hssPYtagged (object):
