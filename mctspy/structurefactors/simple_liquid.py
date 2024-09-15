@@ -178,9 +178,15 @@ class hssPYtagged (object):
         cq3[highq] = -4*np.pi*np.pi * self.a2 * \
                      (q[highq]*c1-2*s1)*(q[highq]*delta*cd-2*sd) / q6
         # low q expansion
-        cq1[lowq] = - np.pi/6.*((3*self.Aab-0.5*self.Bab*(1+delta))*(1+delta)**2 - 0.25*self.Dab*delta*(1+delta**2)+(self.eta2**2)*(delta**3)*phi);
-        cq2[lowq] = np.pi/240. * ((2.5*self.Aab-0.25*self.Bab*(1+delta))*(1+delta)**4 - (1./24)*self.Dab*delta*(3+10*(delta**2)+3*(delta**4)) + ((delta**3)+(delta**5))*phi*(self.eta2**2)) * q2[lowq]
-        cq3[lowq] = -np.pi/26880.*(((7./3)*self.Aab-(1./6)*self.Bab*(1+delta))*(1+delta)**6 -(1./12)*self.Dab*delta*(1+7*(delta**2)+7*(delta**4)+(delta**6)) + (delta**3)*(1./5)*(5+14*(delta**2)+5*(delta**4))*phi * (self.eta2**2)) * q4[lowq]
+        cq1[lowq] = - np.pi/6.*((3*self.Aab-0.5*self.Bab*(1+delta)) \
+                    *(1+delta)**2 - 0.25*self.Dab*delta*(1+delta**2) \
+                    +(self.eta2**2)*(delta**3)*phi)
+        cq2[lowq] = np.pi/240. * ((2.5*self.Aab-0.25*self.Bab*(1+delta))\
+                    *(1+delta)**4 - (1./24)*self.Dab*delta*(3+10*(delta**2)\
+                    +3*(delta**4)) + ((delta**3)+(delta**5))*phi\
+                    *(self.eta2**2)) * q2[lowq]
+        cq3[lowq] = -np.pi/26880.*(((7./3)*self.Aab-(1./6)*self.Bab*(1+delta))\
+                    *(1+delta)**6 -(1./12)*self.Dab*delta*(1+7*(delta**2)\
+                    +7*(delta**4)+(delta**6)) + (delta**3)*(1./5)*(5+14\
+                    *(delta**2)+5*(delta**4))*phi * (self.eta2**2)) * q4[lowq]
         return cq1 + cq2 + cq3
-
-
