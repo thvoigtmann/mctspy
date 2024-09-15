@@ -2,19 +2,49 @@ import numpy as np
 import scipy.linalg as la
 
 from numba import njit, carray, objmode
-from .__util__ import nparray, model_base
+from .__util__ import nparray, model_base, void
 
-class schematic (model_base):
+class generic (model_base):
+    r"""Generic schematic model.
+
+    Allows to declare some commonly used schematic models, with memory
+    kernels of the form :math:`m[f] = \mathcal F[f]` for a given functional.
+
+    Parameters
+    ----------
+    func : callable
+        The memory-kernel functional. Must be a njit-able function
+        that takes the correlator as input, and returns the memory-kernel
+        values.
+    M : int, default: 1
+        The number of correlators expected by the functional.
+ 
+    Notes
+    -----
+
+    Use this to implement more "exotic" models; the most commonly used
+    schematic models such as the F12 model or the Bosse-Krieger model
+    have their own implementations here.
+
+    Currently, the calculation of eigenvalues is not supported for these
+    generic models.
+
+    Examples
+    --------
+    >>> v1, v2 = 0, 3.95
+    >>> model = mct.schematic.generic (lambda x : v1*x + v2*x*x)
+
+    """
     def __init__ (self, func, M=1):
-        self.func = func
+        self.func = njit(func)
         self.M = M
     def __len__ (self):
         return self.M
-    def make_kernel (self, m, phi, i, t):
+    def make_kernel (self):
         F = self.func
         @njit
         def ker(m, phi, i, t):
-            m = F(phi)
+            m[:] = F(phi)
         return ker
 
 class f12model (model_base):
@@ -28,7 +58,7 @@ class f12model (model_base):
         self.v2 = v2
     def __len__ (self):
         return 1
-    def make_kernel (self, m, phi, i, t):
+    def make_kernel (self):
         """Kernel-factory method.
 
         Returns njit-able function to evaluate the F12 model."""
@@ -38,21 +68,21 @@ class f12model (model_base):
         def ker(m, phi, i, t):
             m[:] = v1*phi + v2*phi*phi
         return ker
-    def make_dm (self, m, phi, dphi):
+    def make_dm (self):
         v1 = self.v1
         v2 = self.v2
         @njit
         def dm(m, phi, dphi):
             m[:] = (1-phi) * (v1 * dphi + 2*v2 * phi*dphi) * (1-phi)
         return dm
-    def make_dmhat (self, m, f, ehat):
+    def make_dmhat (self):
         v1 = self.v1
         v2 = self.v2
         @njit
         def dmhat(m, f, ehat):
             m[:] = (1-f)*(v1*ehat + 2*v2 * f*ehat)*(1-f)
         return dmhat
-    def make_dm2 (self, m, phi, dphi):
+    def make_dm2 (self):
         v2 = self.v2
         @njit
         def dm2(m, phi, dphi):
@@ -72,7 +102,7 @@ class f12gammadot_model (f12model):
         f12model.__init__(self, v1, v2)
         self.gammadot = gammadot
         self.gammac = gammac
-    def make_kernel (self, m, phi, i, t):
+    def make_kernel (self):
         v1 = self.v1
         v2 = self.v2
         gammadot = self.gammadot
@@ -95,7 +125,7 @@ class f12gammadot_tensorial_model (f12gammadot_model):
         self.kappa = kappa
         self.use_hhat = use_hhat
         self.nu = nu
-    def make_kernel (self, m, phi, i, t):
+    def make_kernel (self):
         v1 = self.v1
         v2 = self.v2
         gammadot = self.gammadot
@@ -103,14 +133,8 @@ class f12gammadot_tensorial_model (f12gammadot_model):
         nu = self.nu
         @njit
         def ker(m, phi, i, t):
-            #gt = gammadot*t
             with objmode(ht='float64'):
-                #F = la.expm(kappa*gt)
-                #B = np.dot(F,F.T)
-                #I1 = np.trace(B)
-                #I2 = np.trace(la.inv(B))
                 ht = self.hhat(t)
-            #ht = 1.0 / (1. + (nu*I1 + (1-nu)*I2 - 3)/gammac**2)
             m[:] = (v1*phi + v2*phi*phi) * ht
         return ker
     def hhat (self, t):
@@ -143,12 +167,12 @@ class sjoegren_model (model_base):
         self.base = base_model
     def __len__ (self):
         return 1
-    def make_kernel (self, ms, phis, i, t):
+    def kernel_extra_args (self):
+        return [self.base.phi]
+    def make_kernel (self):
         vs = self.vs
-        base_phi = self.base.phi
         @njit
-        def ker(ms, phis, i, t):
-            phi = nparray(base_phi)
+        def ker(ms, phis, i, t, phi):
             ms[:] = vs * phi[i] * phis
         return ker
 
@@ -160,12 +184,12 @@ class msd_model (model_base):
         self.base = base_model
     def __len__ (self):
         return 1
-    def make_kernel (self, ms, phis, i, t):
+    def kernel_extra_args (self):
+        return [self.base.phi]
+    def make_kernel (self):
         vs = self.vs
-        base_phi = self.base.phi
         @njit
-        def ker(ms, phis, i, t):
-            phi = nparray(base_phi)
+        def ker(ms, phis, i, t, phi):
             ms[:] = vs * phi[i] * phi[i]
         return ker
 
@@ -181,14 +205,14 @@ class bosse_krieger_model (model_base):
         self.v3 = v3
     def __len__ (self):
         return 2
-    def make_kernel (self, m, phi, i, t):
+    def make_kernel (self):
         v1, v2, v3 = self.v1, self.v2, self.v3
         @njit
         def ker (m, phi, i, t):
             m[0] = v1 * phi[0]*phi[0] + v2 * phi[1]*phi[1]
             m[1] = v3 * phi[0]*phi[1]
         return ker
-    def make_dm (self, m, phi, dphi):
+    def make_dm (self):
         v1, v2, v3 = self.v1, self.v2, self.v3
         @njit
         def dm (m, phi, dphi):
@@ -196,7 +220,7 @@ class bosse_krieger_model (model_base):
             m[0] = 2.*v1*phi[0]*dp[0] + 2.*v2*phi[1]*dp[1]
             m[1] = v3 * (phi[0]*dp[1] + phi[1]*dp[0])
         return dm
-    def make_dmhat (self, m, f, ehat):
+    def make_dmhat (self):
         v1, v2, v3 = self.v1, self.v2, self.v3
         @njit
         def dmhat (m, f, ehat):
@@ -205,7 +229,7 @@ class bosse_krieger_model (model_base):
             m[1] = 2.*v2*f[1]*ehat[0]*(1-f[1])**2 \
                    +v3*f[0]*ehat[1]*(1-f[1])**2
         return dmhat
-    def make_dm2 (self, m, phi, dphi):
+    def make_dm2 (self):
         v1, v2, v3 = self.v1, self.v2, self.v3
         @njit
         def dm2 (m, phi, dphi):

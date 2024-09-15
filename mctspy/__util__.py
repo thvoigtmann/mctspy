@@ -38,34 +38,38 @@ class model_base (object):
         return np.ones(len(self))
 
     def set_base (self, array):
-        self.phi = void(array)
+        #self.phi = void(array)
+        self.phi = array
     def cache (self):
         if 'base' in dir(self): return False
         return True
 
-    def get_kernel (self, m, phi, i, t):
+    def kernel_extra_args (self):
+        return []
+
+    def get_kernel (self):
         if not self.cache() or not '__m__' in dir(self):
-            self.__m__ = self.make_kernel(m,phi,i,t)
+            self.__m__ = self.make_kernel()
         return self.__m__
-    def get_dm (self, m, phi, dphi):
+    def get_dm (self):
         if not self.cache() or not '__dm__' in dir(self):
-            self.__dm__ = self.make_dm(m,phi,dphi)
+            self.__dm__ = self.make_dm()
         return self.__dm__
-    def get_dmhat (self, m, f, ehat):
+    def get_dmhat (self):
         if not self.cache() or not '__dmhat__' in dir(self):
-            self.__dmhat__ = self.make_dmhat(m,f,ehat)
+            self.__dmhat__ = self.make_dmhat()
         return self.__dmhat__
-    def get_dm2 (self, m, phi, dphi):
+    def get_dm2 (self):
         if not self.cache() or not '__dm2__' in dir(self):
-            self.__dm2__ = self.make_dm2(m,phi,dphi)
+            self.__dm2__ = self.make_dm2()
         return self.__dm2__
 
-    def make_kernel (self, m, phi, i, t):
+    def make_kernel (self):
         @nb.njit
         def dummy(m, phi, i, t):
             return
         return dummy
-    def make_dm (self, m, phi, dphi):
+    def make_dm (self):
         @nb.njit
         def dummy(m, phi, dphi):
             return
@@ -73,12 +77,12 @@ class model_base (object):
     def set_C (self, f):
         # can use this to pre-calculate stability matrix before make_dm
         return
-    def make_dmhat(self, m, f, ehat):
+    def make_dmhat(self):
         @nb.njit
         def dummy(m, f, ehat):
             return
         return dummy
-    def make_dm2 (self, m, phi, dphi):
+    def make_dm2 (self):
         @nb.njit
         def dummy(m, phi, dphi):
             return

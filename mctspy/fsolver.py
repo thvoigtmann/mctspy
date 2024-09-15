@@ -5,21 +5,21 @@ from numba import njit
 from .__util__ import void
 
 @njit
-def _fsolve (f, m, W, phi0, kernel, M, accuracy, maxiter):
+def _fsolve (f, m, W, phi0, kernel, M, accuracy, maxiter, *kernel_args):
     iterations = 0
     converged = False
     newf = phi0
     while (not converged and iterations < maxiter):
         iterations+=1
         f[0] = newf
-        kernel (m[0], f[0], 0, 0.)
+        kernel (m[0], f[0], 0, 0., *kernel_args)
         newf = m[0] / (W+m[0]) * phi0
         if np.isclose (newf, f[0], rtol=accuracy, atol=0.0).all():
             converged = True
             f[0] = newf
         if not iterations%100: print("iter",iterations,np.mean(np.abs(newf-f[0])))
 @njit
-def _fsolve_mat (f, m, W, phi0, WS, kernel, M, accuracy, maxiter):
+def _fsolve_mat (f, m, W, phi0, WS, kernel, M, accuracy, maxiter, *kernel_args):
     iterations = 0
     converged = False
     lowval = False
@@ -27,7 +27,7 @@ def _fsolve_mat (f, m, W, phi0, WS, kernel, M, accuracy, maxiter):
     while (not converged and iterations < maxiter):
         iterations+=1
         f[0] = newf
-        kernel (m[0], f[0], 0, 0.)
+        kernel (m[0], f[0], 0, 0., *kernel_args)
         #newf = phi0 + np.linalg.inv(W + m[0]) @ W
         if 0 and not lowval:
             for q in range(M):
@@ -66,8 +66,7 @@ class nonergodicity_parameter (object):
         self.M = len(model)
         self.f_ = np.zeros((1,self.M*self.dim**2))
         self.m_ = np.zeros((1,self.M*self.dim**2))
-        self.model.set_base(self.f_)
-        self.jit_kernel = model.get_kernel(self.m_,self.f_,0,0.0)
+        self.jit_kernel = model.get_kernel()
 
     def solve (self):
         """Solve for the nonergodicity parameter.
@@ -75,12 +74,13 @@ class nonergodicity_parameter (object):
         Result: The object's field `f` will be set to the NEP values,
         and `m` to the corresponding memory kernel.
         """
+        self.model.set_base(self.f_)
         if self.model.scalar():
-            _fsolve(self.f_, self.m_, self.model.Wq(), self.model.phi0(), self.jit_kernel, self.M, self.accuracy, self.maxiter)
+            _fsolve(self.f_, self.m_, self.model.Wq(), self.model.phi0(), self.jit_kernel, self.M, self.accuracy, self.maxiter, *self.model.kernel_extra_args())
             self.f = self.f_[0]
             self.m = self.m_[0]
         else:
-            _fsolve_mat(self.f_.reshape(1,-1,self.dim,self.dim), self.m_.reshape(1,-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), self.model.phi0().reshape(-1,self.dim,self.dim), self.model.WqSq().reshape(-1,self.dim,self.dim), self.jit_kernel, self.M, self.accuracy, self.maxiter)
+            _fsolve_mat(self.f_.reshape(1,-1,self.dim,self.dim), self.m_.reshape(1,-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), self.model.phi0().reshape(-1,self.dim,self.dim), self.model.WqSq().reshape(-1,self.dim,self.dim), self.jit_kernel, self.M, self.accuracy, self.maxiter, *self.model.kernel_extra_args())
             self.f = self.f_[0].reshape(-1,self.dim,self.dim)
             self.m = self.m_[0].reshape(-1,self.dim,self.dim)
 
@@ -127,9 +127,9 @@ class eigenvalue (object):
         self.maxiter = maxiter
         nep.model.set_C (self.nep.f_[0])
         f, m = self.nep.f_[0], self.nep.m_[0]
-        self.dm = self.nep.model.get_dm(m,f,f)
-        self.dmhat = self.nep.model.get_dmhat(m,f,f)
-        self.dm2 = self.nep.model.get_dm2(m,f,f)
+        self.dm = self.nep.model.get_dm()
+        self.dmhat = self.nep.model.get_dmhat()
+        self.dm2 = self.nep.model.get_dm2()
 
     def solve (self):
         """Solve for the critical eigenvectors.

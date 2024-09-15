@@ -17,9 +17,11 @@ parser.add_argument ('-gammadot',metavar='gdot',help='shear rate',
                      type=float, default=1e-4)
 args = parser.parse_args()
 
-model = mct.f12model (args.v1, args.v2)
+
 #v1,v2 = args.v1,args.v2
-#model = mct.schematic (njit(lambda x:v1*x + v2*x*x))
+#model = mct.schematic.generic (lambda x:v1*x + v2*x*x)
+
+model = mct.f12model (args.v1, args.v2)
 phi = mct.correlator (model = model, maxiter=1000000, blocksize=256, accuracy=1e-10, store=True)
 correlators = mct.CorrelatorStack([phi])
 
@@ -52,20 +54,20 @@ def output (d, istart, iend, correlator_array):
     print ("block",d,"\r",end='')
 
 
-#f = mct.nonergodicity_parameter (model)
-#f.solve()
-#print(f.f,f.m)
-#
-#fs = mct.nonergodicity_parameter (model_s)
-#fs.solve()
-#print(fs.f,fs.m)
-#
-#ev = mct.eigenvalue (f)
-#ev.solve()
-#print ("# eigenvalue = {:f} (check ehat: {:f})".format(ev.eval,ev.eval2))
-#print ("# e = {}".format(ev.e))
-#print ("# ehat = {}".format(ev.ehat))
-#print ("# lambda = {:f}".format(ev.lam))
+f = mct.nonergodicity_parameter (model)
+f.solve()
+print(f.f,f.m)
+
+fs = mct.nonergodicity_parameter (model_s)
+fs.solve()
+print(fs.f,fs.m)
+
+ev = mct.eigenvalue (f)
+ev.solve()
+print ("# eigenvalue = {:f} (check ehat: {:f})".format(ev.eval,ev.eval2))
+print ("# e = {}".format(ev.e))
+print ("# ehat = {}".format(ev.ehat))
+print ("# lambda = {:f}".format(ev.lam))
 
 
 correlators.solve_all(callback=output)
@@ -73,14 +75,13 @@ print("")
 
 
 # test re-running an already solved phi with a new phi_s
+print("RE-SOLVE")
 correlators2 = mct.CorrelatorStack([phi])
 model_s2 = mct.sjoegren_model(args.vs,model)
 phi_s2 = mct.correlator (model = model_s2, base=phi, store=True)
 correlators2.append (phi_s2)
 correlators2.solve_all(callback=output)
 print("")
-print(phi_s.phi)
-print(phi_s2.phi)
 assert((phi_s2.phi==phi_s.phi).all())
 
 plt.plot(phi.t,phi.phi)

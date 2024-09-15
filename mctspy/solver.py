@@ -26,7 +26,7 @@ def _decimize (phi, m, dPhi, dM, blocksize):
         phi[i] = phi[di]
         m[i] = m[di]
 @njit
-def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments, pre_m):
+def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments, pre_m, *kernel_args):
 
     for i in range(istart,iend):
         mpre = pre_m[i-istart]
@@ -49,7 +49,7 @@ def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, ac
         newphi = phi[i-1]
         while (not converged and iterations < maxiter):
             phi[i] = newphi
-            kernel (m[i], phi[i], i, h*i)
+            kernel (m[i], phi[i], i, h*i, *kernel_args)
             newphi = B*m[i] - C
             iterations += 1
             if np.isclose (newphi, phi[i],
@@ -61,7 +61,7 @@ def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, ac
                     dM[i] = 0.5 * (m[i-1] + m[i])
 
 @njit
-def _solve_block_mat (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, M, kernel, maxiter, accuracy, calc_moments):
+def _solve_block_mat (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, M, kernel, maxiter, accuracy, calc_moments, *kernel_args):
 
     Ainv = np.zeros_like(Wq)
     B = np.zeros_like(Wq)
@@ -92,7 +92,7 @@ def _solve_block_mat (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, M, kernel, maxi
         newphi = phi[i-1].copy()
         while (not converged and iterations < maxiter):
             phi[i] = newphi
-            kernel (m[i], phi[i], i, h*i)
+            kernel (m[i], phi[i], i, h*i, *kernel_args)
             for q in range(M):
                 newphi[q] = Ainv[q] @ m[i,q] @ B[q] - C[q]
             iterations += 1
@@ -206,8 +206,7 @@ class correlator (object):
         self.accuracy = accuracy
 
         self.model = model
-        model.set_base(self.phi_)
-        self.jit_kernel = model.get_kernel(self.m_[0],self.phi_[0],0,0.0)
+        self.jit_kernel = model.get_kernel()
 
         self.solved = -2
 
@@ -223,12 +222,13 @@ class correlator (object):
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
         phi0 = self.model.phi0()
+        self.model.set_base(self.phi_)
         if self.model.scalar():
             tauinv = self.model.Wq() * phi0 / self.model.Bq()
             for i in range(iend):
                 t = i*self.h0
                 self.phi_[i] = phi0 - tauinv * t
-                self.jit_kernel (self.m_[i], self.phi_[i], i, t)
+                self.jit_kernel (self.m_[i], self.phi_[i], i, t, *self.model.kernel_extra_args())
         else:
             tauinv = np.zeros_like(phi0)
             Bq = self.model.Bq()
@@ -237,7 +237,7 @@ class correlator (object):
                 tauinv[q] = np.linalg.inv(Bq[q]) @ WqSq[q]
             for i in range(iend):
                 self.phi_[i] = (phi0 - tauinv * t).reshape(-1)
-                self.jit_kernel (self.m_[i].reshape(-1,self.dim,self.dim), self.phi_[i].reshape(-1,self.dim,self.dim), i, t)
+                self.jit_kernel (self.m_[i].reshape(-1,self.dim,self.dim), self.phi_[i].reshape(-1,self.dim,self.dim), i, t, *self.model.kernel_extra_args())
         for i in range(1,iend):
             self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
             self.dM_[i] = 0.5 * (self.m_[i-1] + self.m_[i])
@@ -252,16 +252,17 @@ class correlator (object):
     # core interface, can be reimplemented by derived solvers
     # this is not safe to be reused with save/restore functionality
     def solve_block (self, istart, iend):
+        self.model.set_base(self.phi_)
         if 'kernel_prefactor' in dir(self.model):
             pre_m = self.model.kernel_prefactor(np.arange(istart,iend)*self.h)
         else:
             pre_m = np.ones_like(range(istart,iend))
         if self.model.scalar():
-            _solve_block (istart, iend, self.h, self.model.Bq(), self.model.Wq(), self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2), pre_m)
+            _solve_block (istart, iend, self.h, self.model.Bq(), self.model.Wq(), self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2), pre_m, *self.model.kernel_extra_args())
         else:
             if 'kernel_prefactor' in dir(self.model):
                 raise NotImplementedError
-            _solve_block_mat (istart, iend, self.h, self.model.Bq().reshape(-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), self.phi_.reshape(-1,self.mdimen,self.dim,self.dim), self.m_.reshape(-1,self.mdimen,self.dim,self.dim), self.dPhi_.reshape(-1,self.mdimen,self.dim,self.dim), self.dM_.reshape(-1,self.mdimen,self.dim,self.dim), self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2))
+            _solve_block_mat (istart, iend, self.h, self.model.Bq().reshape(-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), self.phi_.reshape(-1,self.mdimen,self.dim,self.dim), self.m_.reshape(-1,self.mdimen,self.dim,self.dim), self.dPhi_.reshape(-1,self.mdimen,self.dim,self.dim), self.dM_.reshape(-1,self.mdimen,self.dim,self.dim), self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),*self.model_kernel_extra_args())
 
     # new interface with reconstruction of already solved cases
     # does not call the jitted _solve_block directly because
@@ -391,11 +392,11 @@ class correlator (object):
         return newself
 
 @njit
-def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments):
+def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments, *kernel_args):
     A = dM[1] + 1.5*nutmp
 
     for i in range(istart,iend):
-        kernel (m[i], None, i, h*i)
+        kernel (m[i], None, i, h*i, *kernel_args)
 
         ibar = i//2
         C = (m[i]-m[i-1])*dPhi[1] - phi[i-1]*dM[1]
@@ -409,7 +410,6 @@ def _msd_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter,
         C += -6.0
         C = C/A
 
-        #kernel (m[i], None, i, h*i)
         phi[i] = - C
         if calc_moments:
             dPhi[i] = 0.5 * (phi[i-1] + phi[i])
@@ -422,10 +422,11 @@ class mean_squared_displacement (correlator):
     def initial_values (self, imax=50):
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
+        self.model.set_base(self.phi_)
         for i in range(iend):
             t = i*self.h0
             self.phi_[i] = np.ones(self.mdimen)*6.*t/self.model.Bq()
-            self.jit_kernel (self.m_[i], None, i, t)
+            self.jit_kernel (self.m_[i], None, i, t, *self.model.kernel_extra_args())
         for i in range(1,iend):
             self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
             self.dM_[i] = 0.5 * (self.m_[i-1] + self.m_[i])
@@ -434,18 +435,18 @@ class mean_squared_displacement (correlator):
         self.iend = iend
 
     def solve_block (self, istart, iend):
-        _msd_solve_block (istart, iend, self.h, self.model.Bq()/self.h, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy, (istart<self.blocksize//2))
+        _msd_solve_block (istart, iend, self.h, self.model.Bq()/self.h, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy, (istart<self.blocksize//2), *self.model.kernel_extra_args())
 
     def type (self):
         return 'MSD'
 
 
 @njit
-def _ngp_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments):
+def _ngp_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments, *kernel_args):
     A = dM[1] + 1.5*nutmp
 
     for i in range(istart,iend):
-        kernel (m[i], None, i, h*i)
+        kernel (m[i], None, i, h*i, *kernel_args)
 
         ibar = i//2
         # this is 2-dim, calculates m*a and m2*dr2
@@ -463,7 +464,6 @@ def _ngp_solve_block (istart, iend, h, nutmp, phi, m, dPhi, dM, kernel, maxiter,
         C[0] += -12.0 * phi[i,1] - 6.0 * C[1]
         C = C/A
 
-        #kernel (m[i], None, i, h*i)
         phi[i,0] = - C[0]
         if calc_moments:
             dPhi[i] = 0.5 * (phi[i-1] + phi[i])
@@ -476,11 +476,12 @@ class non_gaussian_parameter (correlator):
     def initial_values (self, imax=50):
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
+        self.model.set_base(self.phi_)
         for i in range(iend):
             t = i*self.h0
             self.phi_[i] = np.zeros(self.mdimen)
             self.phi_[i,1] = self.model.phi2()[i,0]
-            self.jit_kernel (self.m_[i], None, i, t)
+            self.jit_kernel (self.m_[i], None, i, t, *self.model.kernel_extra_args())
         for i in range(1,iend):
             self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
             self.dM_[i] = 0.5 * (self.m_[i-1] + self.m_[i])
@@ -496,7 +497,7 @@ class non_gaussian_parameter (correlator):
         in component 0. Component 1 of phi will be filled with the MSD.
         """
         self.phi_[istart:iend,1] = self.model.phi2()[istart:iend,0]
-        _ngp_solve_block (istart, iend, self.h, self.model.Bq()/self.h, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy, (istart<self.blocksize//2))
+        _ngp_solve_block (istart, iend, self.h, self.model.Bq()/self.h, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy, (istart<self.blocksize//2), *self.model.kernel_extra_args())
 
     def type (self):
         return 'NGP'

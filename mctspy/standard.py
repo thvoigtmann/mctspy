@@ -52,7 +52,7 @@ class simple_liquid_model (model_base):
         self.b[6] = pSp * cp**2
         self.b[7] = pSp * qsqppsq * cp**2
         self.b[8] = pSp * qsqppsq**2 * cp**2
-    def make_kernel (self, m, phi, i, t):
+    def make_kernel (self):
         a, b, apre = self.a, self.b, self.apre
         M = self.M
         dq = self.dq()
@@ -101,7 +101,7 @@ class simple_liquid_model (model_base):
                         C[qi,ki] += a[n,ki] * zqk * (1-f[ki])**2
         calc_C (C, f)
         self.__C__ = C
-    def make_dm (self, m, phi, dphi):
+    def make_dm (self):
         M = self.M
         Cqk = void(self.__C__)
         q = self.q
@@ -111,7 +111,7 @@ class simple_liquid_model (model_base):
             V = nparray(Cqk)
             m[:] = 2 * dq**2/q**2 * np.dot(V,dphi)
         return dm
-    def make_dmhat (self, m, f, ehat):
+    def make_dmhat (self):
         M = self.M
         Cqk = void(self.__C__)
         q = self.q
@@ -121,7 +121,7 @@ class simple_liquid_model (model_base):
             V = nparray(Cqk)
             m[:] = np.dot(ehat/q**2, V) * 2 * dq**2
         return dmhat
-    def make_dm2 (self, m, phi, dphi):
+    def make_dm2 (self):
         M = self.M
         a, b, apre = self.a, self.b, self.apre
         q = self.q
@@ -188,11 +188,9 @@ class tagged_particle_model (model_base):
         self.b[0] = pq
         self.b[1] = pq * qsq_psq
         self.b[2] = pq * qsq_psq**2
-    def set_base (self, array):
-        model_base.set_base (self, array)
-        a, b = self.a, self.b
-        V = np.zeros((self.M,self.M))
-        M = self.M
+        #
+        self.__Vqk__ = np.zeros((self.M,self.M))
+        a, b, M = self.a, self.b, self.M
         @njit
         def calc_V (V, f):
             for qi in range(M):
@@ -215,21 +213,22 @@ class tagged_particle_model (model_base):
                         V[qi,ki] += a[n,ki] * zqk
         #calc_V (V, array[0])
         self.__calcV__ = calc_V
-        self.__Vqk__ = V
-    def make_kernel (self, ms, phis, i, t):
+    def kernel_extra_args (self):
+        return [self.base.phi]
+    def make_kernel (self):
         M = self.M
         #a, b = self.a, self.b
         Vqk = void(self.__Vqk__)
         Vfunc = self.__calcV__
-        base_phi = self.base.phi
+        #base_phi = self.base.phi
         dq = _dq(self.base.q)
         self.__i__ = np.zeros(1,dtype=int)
         __i__ = void(self.__i__)
         @njit
-        def ker (ms, phis, i, t):
+        def ker (ms, phis, i, t, phi):
             last_i = nparray(__i__)
             V = nparray(Vqk)
-            phi = nparray(base_phi)
+            #phi = nparray(base_phi)
             if last_i[0]==0 or not (i==last_i[0]):
                 Vfunc(V, phi[i])
                 last_i[0] = i
@@ -283,15 +282,17 @@ class tagged_particle_q0 (model_base):
         self.V = pre * (self.base.q**2 * cs)**2 * sk
     def set_base (self, array):
         model_base.set_base (self, array)
-    def make_kernel (self, ms0, phis0, i, t):
+    def kernel_extra_args (self):
+        return [self.base.base.phi, self.base.phi]
+    def make_kernel (self):
         M = self.base.M
         Vk = void(self.V)
-        base_phi_s = self.base.phi
-        base_phi = self.base.base.phi
+        #base_phi_s = self.base.phi
+        #base_phi = self.base.base.phi
         @njit
-        def ker (ms0, phis0, i, t):
-            phi = nparray(base_phi)
-            phi_s = nparray(base_phi_s)
+        def ker (ms0, phis0, i, t, phi, phi_s):
+            #phi = nparray(base_phi)
+            #phi_s = nparray(base_phi_s)
             V = nparray(Vk)
             ms0[:] = np.dot(V,phi[i]*phi_s[i]) # good for one-component only
         return ker
@@ -331,7 +332,9 @@ class tagged_particle_ngp (tagged_particle_q0):
     #    sk = self.base.base.base.sq
     #    cs = self.base.base.cs
     #    self.V = pre * (self.base.base.q**2 * cs)**2 * sk
-    def make_kernel (self, ngpm, ngpphi, i, t):
+    def kernel_extra_args (self):
+        return [self.base.base.phi, self.base.phi]
+    def make_kernel (self):
         r"""Kernel factory for NGP calculations.
 
         This works on a pair of correlation functions, the first is the
@@ -342,14 +345,14 @@ class tagged_particle_ngp (tagged_particle_q0):
         """
         # since we inherit from tagged_particle_q0,
         # the "base" is phis, and its "base" is phi
-        phisbase_phi = self.base.phi
-        phibase_phi = self.base.base.phi
+        #phisbase_phi = self.base.phi
+        #phibase_phi = self.base.base.phi
         Vk = void(self.V)
         k = self.base.q
         @njit
-        def ker (ngpm, ngpphi, i, t):
-            phis = nparray(phisbase_phi)
-            phi = nparray(phibase_phi)
+        def ker (ngpm, ngpphi, i, t, phi, phis):
+            #phis = nparray(phisbase_phi)
+            #phi = nparray(phibase_phi)
             #dphis = np.gradient(phis[i],k)
             #dd = np.gradient(dphis,k) + (2./3)*dphis
             dphis = np_gradient(phis[i],k)
@@ -359,7 +362,8 @@ class tagged_particle_ngp (tagged_particle_q0):
             ngpm[1] = (3./5) * np.dot(V,phi[i]*dd)
         return ker
     def phi2 (self):
-        return nparray(self.msdbase.phi)
+        #return nparray(self.msdbase.phi)
+        return self.msdbase.phi
     def h5save (self, fh):
         grp = fh.create_group("model")
         grp.attrs['type'] = 'tagged_particle_ngp'

@@ -100,7 +100,7 @@ class simple_liquid_model_2d (model_base):
                     x = (q[qi]**2 + q[ki]**2 - q[p]**2) / (2*q[qi]*q[ki])
                     print(qi,ki,x)
             quit()
-    def make_kernel (self, m, phi, i, t):
+    def make_kernel (self):
         """Kernel factory, two-dimensional MCT for simple liquids.
 
         Returns a numba-jit kernel method that implements the integration

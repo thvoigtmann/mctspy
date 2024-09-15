@@ -99,7 +99,7 @@ class mixture_model (model_base):
                             for d in range(self.S):
                                 assert(self.b3[0,qi,pi,a,b,g,d] == q[pi]/q[qi]**2 * self.cq[pi,a,b] * self.cq[pi,g,d])
                                 assert(np.isclose(self.b3[1,qi,pi,a,b,g,d] , (q[qi]**2 + q[pi]**2) * q[pi]/q[qi]**2 * self.cq[pi,a,b] * self.cq[pi,g,d]))
-    def make_kernel (self, m, phi, i, t):
+    def make_kernel (self):
         a1, a2, a3 = self.a1, self.a2, self.a3
         b1, b2, b3 = self.b1, self.b2, self.b3
         M, S = self.M, self.S
