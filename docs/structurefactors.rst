@@ -100,6 +100,83 @@ Simple Liquids (3D)
         {5(1-\varphi)^4}\right)q^4
         \end{align}
 
+.. autoclass:: mctspy.structurefactors.hssVW
+    :members:
+    :inherited-members:
+
+    Verlet and Weis [2]_ proposed to correct the Percus-Yevick (PY)
+    structure factor essentially by evaluating it at an effective
+    density, and on effective wave numbers. The adjustment is calculated
+    on the basis of the radial distribution function, for which
+    the formulas by Wertheim [1]_ are used. In terms of the total
+    correlation function, one gets
+
+    .. math::
+
+        h_\text{VW}(q d,\varphi)=\frac{\varphi_\text{eff}}\varphi
+        h_\text{PY}(q d_\text{eff},\varphi_\text{eff})-I(q)
+        +\frac{4\pi A}{q}\frac{q^3\cos(q d)+\mu(q^2+2\mu^2)\sin(q d)}
+        {q^4+4\mu^4}
+
+    with
+
+    .. math::
+
+        I(q)=\frac{4\pi}{q d_\text{eff}}d_\text{eff}^3
+        \int_1^{d/d_\text{eff}}\sin(q d_\text{eff}x)x
+        g_\text{PY}(x,\eta_\text{eff})\,dx
+
+    Here, the Percus-Yevick RDF :math:`g_\text{PY}(r)` is known in the relevant
+    regime from Wertheim's result.
+    The integral :math:`I(q)` can thus be solved in terms of elementary
+    functions,
+
+    .. math::
+
+        I(q)=\frac{4\pi}{q d_\text{eff}}\frac{d_\text{eff}^3}
+        {(1-\eta_\text{eff})^2}\sum_{i=0}^2G_ii_i(qd_\text{eff})
+
+    where the :math:`G_i` and :math:`\mu`, :math:`A` are constants and
+    the :math:`i_{0,1,2}(q)` are functions that we implement explicitly,
+
+    .. math::
+
+        \begin{align}
+        i_0(qd_\text{eff})&=\left.e^{\gamma x}\frac{\gamma\sin(qd_\text{eff}x)
+        -qd_\text{eff}\cos(qd_\text{eff}x)}{(qd_\text{eff})^2+\gamma^2}
+        \right|_{x=1}^{x=d/d_\text{eff}} \\
+        i_1(qd_\text{eff})&=\left.e^{-\delta x}\left(
+        \frac{\cos(q_+x)(\delta\sin\kappa-q_+\cos\kappa)}{q_+^2+\delta^2}
+        -\frac{\sin(q_+x)(\delta\cos\kappa+q_+\sin\kappa)}{q_+^2+\delta^2}
+        -\frac{q_-\cos(q_-x+\kappa)+\delta\sin(q_-x+\kappa)}{q_-^2+\delta^2}
+        \right)\right|_{x=1}^{x=d/d_\text{eff}} \\
+        i_2(qd_\text{eff})&=\left.e^{-\delta x}\left(
+        \frac{\cos(q_+x)(\delta\cos\kappa+q_+\sin\kappa)}{q_+^2+\delta^2}
+        +\frac{\sin(q_+x)(\delta\sin\kappa-q_+\cos\kappa)}{q_+^2+\delta^2}
+        +\frac{q_-\sin(q_-x+\kappa)-\delta\cos(q_-x+\kappa)}{q_-^2+\delta^2}
+        \right)\right|_{x=1}^{x=d/d_\text{eff}}
+        \end{align}
+
+    The structure factor and the direct correlation function are thus
+    obtained from the total correlation function,
+
+    .. math::
+
+        \begin{align} c(q)&=\frac{h(q)}{1+\rho h(q)} \\
+        S(q) &= 1 + \rho h(q) \end{align}
+
+    The derivatives are calculated from
+
+    .. math::
+
+        c'(q)=\frac{h'(q)}{(1+\rho h(q))*2}
+
+    where the derivative of the total correlation function is obtained
+    from simple numerical differentiation (although this could in principle
+    be also calculated analytically).
+
+    .. [2] L. Verlet and J.-J. Weis, Phys. Rev. A 5, 939 (1972), `DOI:10.1103/PhysRevA.2.939 <https://doi.org/10.1103/PhysRevA.2.939>`_
+
 
 Simple Liquids (2D)
 -------------------
@@ -108,7 +185,7 @@ Simple Liquids (2D)
     :members:
     :inherited-members:
 
-    The expression implemented here was given by Thorneywork et al. [2]_
+    The expression implemented here was given by Thorneywork et al. [3]_
 
     .. math::
 
@@ -133,7 +210,7 @@ Simple Liquids (2D)
     equation of state from scaled-particle theory.
 
  
-    .. [2] A. L. Thorneywork, S. K. Schnyer, D. G. A. L. Aarts,
+    .. [3] A. L. Thorneywork, S. K. Schnyer, D. G. A. L. Aarts,
            J. Horbach, R. Roth, R. P. A. Dullens,
            Molec. Phys. 116, 3245 (2018), `DOI:10.1080/00268976.2018.1492745 <https://doi.org/10.1080/00268976.2018.1492745>`_
 
@@ -157,7 +234,7 @@ Mixtures (3D)
 
     The implementation is based on analytic expressions that follow from
     Fourier transforming the real-space expressions derived by Baxter
-    [3]_ using a Wiener-Hopf factorization method.
+    [4]_ using a Wiener-Hopf factorization method.
     This gives the DCF :math:`c_{\alpha\beta}(q)` directly, so that the
     structure factor matrix follows from the Ornstein-Zernike equation.
     For small wave numbers, these analytic expressions are expanded to
@@ -236,5 +313,5 @@ Mixtures (3D)
     unit matrix. The conventional static structure factor is obtained
     by multiplying with :math:`\boldsymbol\rho^{1/2}` from both sides again.
 
-    .. [3] R. J. Baxter, J. Chem. Phys. 52, 4559 (1970), `DOI:10.1063/1.1673684 <https://doi.org/10.1063/1.1673684>`_
+    .. [4] R. J. Baxter, J. Chem. Phys. 52, 4559 (1970), `DOI:10.1063/1.1673684 <https://doi.org/10.1063/1.1673684>`_
 

@@ -190,3 +190,159 @@ class hssPYtagged (object):
                     +7*(delta**4)+(delta**6)) + (delta**3)*(1./5)*(5+14\
                     *(delta**2)+5*(delta**4))*phi * (self.eta2**2)) * q4[lowq]
         return cq1 + cq2 + cq3
+
+
+class hssVW (object):
+    """Verlet-Weis structure factor for hard spheres.
+
+    This implements the modified Percus-Yevick (PY) approximation
+    proposed by Verlet and Weis; a semi-empirical correction designed
+    to enforce thermodynamic consistency of the result.
+
+    Parameters
+    ----------
+    phi : float
+        Packing fraction of the system.
+    """
+    def __init__ (self, phi):
+        self.phi = phi
+        phieff = phi*(1-phi/16)
+        self.pySq = hssPY(phi=phieff)
+        self.deff = (phieff/phi)**(1./3)
+        esq = phieff**2
+        etacmp = 1.-phieff
+        etacmp4 = etacmp**4
+        pyconteff = (1-3*phieff/2+esq*phieff/2)
+        A = 0.75*esq*(1.-0.7117*phieff-0.114*esq)
+        self.mu = 24*A/(phieff*pyconteff)
+        self.A = A/etacmp4;
+        # Wertheim g(x) factors, see PRL 10, 321 (1963)
+        # the PRL has an error stating xmin, the correction of which we guess
+        tmp = (3 + 3*phieff - esq)/(4*esq);
+        xmax = (tmp + np.sqrt(tmp*tmp+1./8.))**(1./3.)
+        xmin = (-tmp + np.sqrt(tmp*tmp+1./8.))**(1./3.)
+        tmp = 1./(4*phieff*np.sqrt(tmp*tmp+1./8.))
+        H0 = 1+phieff/2
+        H1 = -tmp * (xmin**2)*(1-3*phieff-4*esq)+xmax*(1-5*esq/2)
+        H2 =  tmp * (xmax**2)*(1-3*phieff-4*esq)+xmin*(1-5*esq/2)
+        alpha = phieff/etacmp
+        self.gamma = 2*alpha*(xmax+xmin-1)
+        self.delta = alpha*(xmax+xmin+2)
+        self.kappa = alpha*np.sqrt(3.)*(xmax+xmin)
+        self.G0 = (H0+H1+H2)/3.*np.exp(-self.gamma)
+        self.G1 = (2*H0-H1-H2)/6.*np.exp(self.delta)
+        self.G2 = -(H1-H2)/(2*np.sqrt(3.))*np.exp(self.delta)
+        self.phieff = phieff
+    def density (self):
+        return self.phi*6/np.pi
+    def i0 (self, q):
+        return ( \
+            (self.gamma*np.sin(q/self.deff) - q*np.cos(q/self.deff)) * np.exp(self.gamma/self.deff) \
+            - (self.gamma*np.sin(q) - q*np.cos(q)) * np.exp(self.gamma) ) / \
+            (q**2 + self.gamma**2)
+    def i1 (self, q):
+        x=1./self.deff
+        coskappa = np.cos(self.kappa)
+        sinkappa = np.sin(self.kappa)
+        res = np.cos((q+self.kappa)*x)*(self.delta*sinkappa-(q+self.kappa)*coskappa) \
+            - np.sin((q+self.kappa)*x)*(self.delta*coskappa+(q+self.kappa)*sinkappa)
+        res /= (q+self.kappa)**2 + self.delta**2
+        arg = (q-self.kappa)*x+self.kappa
+        cosarg = np.cos(arg)
+        sinarg = np.sin(arg)
+        res -= ((q-self.kappa)*cosarg+self.delta*sinarg)/((q-self.kappa)**2+self.delta**2)
+        res *= np.exp(-self.delta*x)
+        x = 1
+        res2 = np.cos((q+self.kappa)*x)*(self.delta*sinkappa-(q+self.kappa)*coskappa) \
+             - np.sin((q+self.kappa)*x)*(self.delta*coskappa+(q+self.kappa)*sinkappa)
+        res2 /= (q+self.kappa)**2 + self.delta**2
+        arg = (q-self.kappa)*x+self.kappa
+        cosarg = np.cos(arg)
+        sinarg = np.sin(arg)
+        res2 -= ((q-self.kappa)*cosarg+self.delta*sinarg)/((q-self.kappa)**2+self.delta**2)
+        res2 *= np.exp(-self.delta*x)
+        return res - res2
+    def i2 (self, q):
+        x=1./self.deff
+        coskappa = np.cos(self.kappa)
+        sinkappa = np.sin(self.kappa)
+        res = np.cos((q+self.kappa)*x)*(self.delta*coskappa+(q+self.kappa)*sinkappa) \
+            + np.sin((q+self.kappa)*x)*(self.delta*sinkappa-(q+self.kappa)*coskappa)
+        res /= (q+self.kappa)**2 + self.delta**2
+        arg = (q-self.kappa)*x+self.kappa
+        cosarg = np.cos(arg)
+        sinarg = np.sin(arg)
+        res += ((q-self.kappa)*sinarg-self.delta*cosarg)/((q-self.kappa)**2+self.delta**2)
+        res *= np.exp(-self.delta*x)
+        x = 1
+        res2 = np.cos((q+self.kappa)*x)*(self.delta*coskappa+(q+self.kappa)*sinkappa) \
+             + np.sin((q+self.kappa)*x)*(self.delta*sinkappa-(q+self.kappa)*coskappa)
+        res2 /= (q+self.kappa)**2 + self.delta**2
+        arg = (q-self.kappa)*x+self.kappa
+        cosarg = np.cos(arg)
+        sinarg = np.sin(arg)
+        res2 += ((q-self.kappa)*sinarg-self.delta*cosarg)/((q-self.kappa)**2+self.delta**2)
+        res2 *= np.exp(-self.delta*x)
+        return res - res2;
+    def hq (self, q):
+        highq = q>=0.05
+        lowq = q<0.05
+        phieff = self.phieff
+        rhoeff = phieff*6/np.pi
+        q_eff = q*self.deff;
+        hpy = self.pySq.cq(q_eff)
+        hpy = hpy/(1.-rhoeff*hpy)
+        qsq = q*q
+        sinq_q = np.zeros_like(q)
+        sinq_q[highq] = np.sin(q[highq])/q[highq]
+        sinq_q[lowq] = 1.-qsq[lowq]/6
+        corr = 4*np.pi*self.A*(qsq*np.cos(q)+self.mu*(qsq+2*self.mu**2)*sinq_q) \
+               /(qsq*qsq + 4*self.mu**4);
+        pre = 4*np.pi*self.deff**3/(1.-phieff)**2/q_eff;
+        I = pre * (self.G0*self.i0(q_eff) + self.G1*self.i1(q_eff) \
+                                          + self.G2*self.i2(q_eff))
+        return phieff/self.phi*hpy + corr - I;
+    def dhq_dq (self, q):
+        return 5e3*(self.hq(q+1e-4) - self.hq(q-1e-4))
+    def cq (self, q):
+        """Evaluate the DCF on the given wave number grid.
+
+        Parameters
+        ----------
+        q : array_like
+            Wave numbers on which to evaluate the DCF.
+
+        Returns
+        -------
+        cq : array_like
+            DCF evaluated on the given wave numbers.
+
+        Notes
+        -----
+        This implementation requires the smallest wave number to be
+        larger than about 1e-3, and no special precaution for small
+        wave numbers is implemented.
+        """
+        hq_ = self.hq(q)
+        return hq_/(1.0 + self.density() * hq_)
+    def Sq (self, q):
+        """Evaluate the structure factor on the given wave number grid.
+
+        Parameters
+        ----------
+        q ; array_like
+            Wave number grid,
+            see notes for :py:func:`mctspy.structurefactors.hssVW.cq`.
+
+        Returns
+        -------
+        sq : array_like
+            Structure factor.
+        cq : array_like
+            DCF.
+        """
+        hq_ = self.hq(q)
+        hq1_ = 1.0 + self.density()*hq_
+        return hq1_, hq_/hq1_
+    def dcq_dq (self, q):
+        return self.dhq_dq(q)/(1. + self.density()*self.hq(q))**2
