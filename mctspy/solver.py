@@ -63,9 +63,9 @@ def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, ac
 @njit
 def _solve_block_mat (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, M, kernel, maxiter, accuracy, calc_moments, *kernel_args):
 
-    Ainv = np.zeros_like(Wq)
-    B = np.zeros_like(Wq)
-    C = np.zeros_like(Wq)
+    Ainv = np.zeros_like(Wq,dtype=Wq.dtype)
+    B = np.zeros_like(Wq,dtype=Wq.dtype)
+    C = np.zeros_like(Wq,dtype=Wq.dtype)
 
     for q in range(M):
         Ainv[q] = np.linalg.inv(Wq[q] + dM[1,q] + Bq[q]*1.5/h)
@@ -96,7 +96,7 @@ def _solve_block_mat (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, M, kernel, maxi
             for q in range(M):
                 newphi[q] = Ainv[q] @ m[i,q] @ B[q] - C[q]
             iterations += 1
-            if np.isclose(newphi.reshape(-1), phi[i].reshape(-1),
+            if np.isclose(newphi.reshape(-1).view('float'), phi[i].reshape(-1),
                           rtol=accuracy, atol=accuracy).all():
                 converged = True
                 phi[i,...] = newphi
@@ -230,12 +230,13 @@ class correlator (object):
                 self.phi_[i] = phi0 - tauinv * t
                 self.jit_kernel (self.m_[i], self.phi_[i], i, t, *self.model.kernel_extra_args())
         else:
-            tauinv = np.zeros_like(phi0)
+            tauinv = np.zeros_like(phi0,dtype=self.model.dtype)
             Bq = self.model.Bq()
             WqSq = self.model.WqSq()
             for q in range(self.mdimen):
                 tauinv[q] = np.linalg.inv(Bq[q]) @ WqSq[q]
             for i in range(iend):
+                t = i*self.h0
                 self.phi_[i] = (phi0 - tauinv * t).reshape(-1)
                 self.jit_kernel (self.m_[i].reshape(-1,self.dim,self.dim), self.phi_[i].reshape(-1,self.dim,self.dim), i, t, *self.model.kernel_extra_args())
         for i in range(1,iend):
@@ -256,13 +257,13 @@ class correlator (object):
         if 'kernel_prefactor' in dir(self.model):
             pre_m = self.model.kernel_prefactor(np.arange(istart,iend)*self.h)
         else:
-            pre_m = np.ones_like(range(istart,iend))
+            pre_m = np.ones_like(range(istart,iend),dtype=self.model.dtype)
         if self.model.scalar():
             _solve_block (istart, iend, self.h, self.model.Bq(), self.model.Wq(), self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2), pre_m, *self.model.kernel_extra_args())
         else:
             if 'kernel_prefactor' in dir(self.model):
                 raise NotImplementedError
-            _solve_block_mat (istart, iend, self.h, self.model.Bq().reshape(-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), self.phi_.reshape(-1,self.mdimen,self.dim,self.dim), self.m_.reshape(-1,self.mdimen,self.dim,self.dim), self.dPhi_.reshape(-1,self.mdimen,self.dim,self.dim), self.dM_.reshape(-1,self.mdimen,self.dim,self.dim), self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),*self.model_kernel_extra_args())
+            _solve_block_mat (istart, iend, self.h, self.model.Bq().reshape(-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), self.phi_.reshape(-1,self.mdimen,self.dim,self.dim), self.m_.reshape(-1,self.mdimen,self.dim,self.dim), self.dPhi_.reshape(-1,self.mdimen,self.dim,self.dim), self.dM_.reshape(-1,self.mdimen,self.dim,self.dim), self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),*self.model.kernel_extra_args())
 
     # new interface with reconstruction of already solved cases
     # does not call the jitted _solve_block directly because
@@ -385,8 +386,8 @@ class correlator (object):
                 blocks=attrs['blocks'], maxiter=attrs['maxiter'],
                 accuracy=attrs['accuracy'], model = loaded_model(f))
             newself.t = np.array(f['correlator/time_domain/t'])
-            newself.phi = np.array(f['correlator/time_domain/phi'])
-            newself.m = np.array(f['correlator/time_domain/m'])
+            newself.phi = np.array(f['correlator/time_domain/phi'], dtype=newself.model.dtype)
+            newself.m = np.array(f['correlator/time_domain/m'], dtype=newself.model.dtype)
             newself.store = True
             newself.solved = attrs['solved_blocks']
         return newself
@@ -425,7 +426,7 @@ class mean_squared_displacement (correlator):
         self.model.set_base(self.phi_)
         for i in range(iend):
             t = i*self.h0
-            self.phi_[i] = np.ones(self.mdimen)*6.*t/self.model.Bq()
+            self.phi_[i] = np.ones(self.mdimen,dtype=self.model.dtype)*6.*t/self.model.Bq()
             self.jit_kernel (self.m_[i], None, i, t, *self.model.kernel_extra_args())
         for i in range(1,iend):
             self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
@@ -479,7 +480,7 @@ class non_gaussian_parameter (correlator):
         self.model.set_base(self.phi_)
         for i in range(iend):
             t = i*self.h0
-            self.phi_[i] = np.zeros(self.mdimen)
+            self.phi_[i] = np.zeros(self.mdimen, dtype=self.model.dtype)
             self.phi_[i,1] = self.model.phi2()[i,0]
             self.jit_kernel (self.m_[i], None, i, t, *self.model.kernel_extra_args())
         for i in range(1,iend):
