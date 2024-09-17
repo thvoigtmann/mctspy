@@ -63,9 +63,9 @@ def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, ac
 @njit
 def _solve_block_mat (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, M, kernel, maxiter, accuracy, calc_moments, *kernel_args):
 
-    Ainv = np.zeros_like(Wq,dtype=Wq.dtype)
-    B = np.zeros_like(Wq,dtype=Wq.dtype)
-    C = np.zeros_like(Wq,dtype=Wq.dtype)
+    Ainv = np.zeros_like(Wq,dtype=phi.dtype)
+    B = np.zeros_like(Wq,dtype=phi.dtype)
+    C = np.zeros_like(Wq,dtype=phi.dtype)
 
     for q in range(M):
         Ainv[q] = np.linalg.inv(Wq[q] + dM[1,q] + Bq[q]*1.5/h)
@@ -231,10 +231,12 @@ class correlator (object):
                 self.jit_kernel (self.m_[i], self.phi_[i], i, t, *self.model.kernel_extra_args())
         else:
             tauinv = np.zeros_like(phi0,dtype=self.model.dtype)
-            Bq = self.model.Bq()
+            #Bq = self.model.Bq()
+            Bqinv = self.model.Bqinv()
             WqSq = self.model.WqSq()
             for q in range(self.mdimen):
-                tauinv[q] = np.linalg.inv(Bq[q]) @ WqSq[q]
+                #tauinv[q] = np.linalg.inv(Bq[q]) @ WqSq[q]
+                tauinv[q] = Bqinv[q] @ WqSq[q]
             for i in range(iend):
                 t = i*self.h0
                 self.phi_[i] = (phi0 - tauinv * t).reshape(-1)
