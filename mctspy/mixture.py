@@ -8,6 +8,7 @@ def _dq (q):
 
 class mixture_model (model_base):
     def __init__ (self, Sq, q, D0=1.0):
+        model_base.__init__(self)
         self.rho = Sq.density()
         self.x = Sq.densities/self.rho
         self.q = q
