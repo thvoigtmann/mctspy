@@ -3,7 +3,7 @@ import scipy
 from .solver import _decimize
 
 class CorrelatorStack(list):
-    def solve_all (self, callback=lambda d,i1,i2,corr:None, stop_on_zero=False):
+    def solve_all (self, callback=None, stop_on_zero=False):
         """Solve all correlators in the list.
 
         This method calls the solver for each correlator in the list,
@@ -38,11 +38,13 @@ class CorrelatorStack(list):
         blocks = self[0].blocks
         for _phi_ in self:
             _phi_.solve_first()
-        callback (0, 0, halfblocksize, self)
+        if callback is not None:
+            callback (0, 0, halfblocksize, self)
         for d in range(blocks):
             for _phi_ in self:
                 _phi_.solve_next (d)
-            callback (d, halfblocksize, blocksize, self)
+            if callback is not None:
+                callback (d, halfblocksize, blocksize, self)
             stop = 0
             for _phi_ in self:
                 _phi_.decimize ()
