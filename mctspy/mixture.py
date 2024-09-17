@@ -10,12 +10,11 @@ class mixture_model (model_base):
     def __init__ (self, Sq, q, D0=1.0):
         model_base.__init__(self)
         self.rho = Sq.density()
-        self.x = Sq.densities/self.rho
         self.q = q
         self.Sq = Sq
         self.sq, self.cq = Sq.Sq(q)
         self.M = q.shape[0]
-        self.S = self.x.shape[0]
+        self.S = Sq.densities.shape[0]
         self.__init_vertices__ ()
         if isinstance(D0, (list, np.ndarray)):
           self.D0 = np.array(D0)
@@ -31,6 +30,8 @@ class mixture_model (model_base):
         return self.sq
     def Bq (self):
         return np.ones((self.M,self.S,self.S))*np.diag(1/self.D0)
+    def Bqinv (self):
+        return np.ones((self.M,self.S,self.S))*np.diag(self.D0)
     def Wq (self):
         return (self.q**2)[:,None,None] * np.linalg.inv(self.sq)
     def WqSq (self):
