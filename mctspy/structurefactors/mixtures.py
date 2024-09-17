@@ -85,3 +85,49 @@ class hsmPY (object):
         cq_ = self.cq(q)
         rhoa, rhob = np.meshgrid(self.densities, self.densities)
         return np.linalg.inv(-np.sqrt(rhoa*rhob)[None,:,:]*cq_ + np.diag(np.ones_like(self.densities))[None,:,:]), cq_
+    def dcq_dq (self, q):
+        """Return derivative to the DCF.
+
+        Parameters
+        ----------
+        q : array_like
+            Grid of wave numbers where the DCF should be evaluated.
+
+        Returns
+        -------
+        dcq : array_like
+            Derivative of the DCF evaluated on the given grid.
+        """
+        highq = q>=self.lowq
+        lowq = q<self.lowq
+        q_ = q[:,None,None]
+        q2 = q_*q_
+        q3 = q2*q_
+        q4 = q2[highq]*q2[highq]
+        q5 = q3[highq]*q2[highq]
+        q6 = q3[highq]*q3[highq]
+        Sa, Sb = np.sin(0.5*q_[highq]*self.da), np.sin(0.5*q_[highq]*self.db)
+        Ca, Cb = np.cos(0.5*q_[highq]*self.da), np.cos(0.5*q_[highq]*self.db)
+        dcq = np.zeros((q.shape[0],self.densities.shape[0],self.densities.shape[0]))
+        dcq[highq] = 4.*np.pi* ( \
+            -self.A*self.dab*(Cb*Sa+Ca*Sb)/q2[highq] \
+            -(2*self.A+self.B*self.dab)*(Ca*Cb-Sa*Sb)/q3[highq] \
+            + (Cb*Sa*self.db*(-self.D+np.pi*self.a2*self.da**2) \
+            +  Ca*Sb*self.da*(-self.D+np.pi*self.a2*self.db**2) \
+               +6*self.B*(Cb*Sa+Ca*Sb))/(2*q4) \
+            + (6*np.pi*self.a2*Ca*Cb*self.dadb \
+              - np.pi*self.a2*Sa*Sb*(self.da**2+self.db**2) \
+              + 4*self.D*Sa*Sb)/q5 \
+            - 12*np.pi*self.a2*(Cb*Sa*self.db+Ca*Sb*self.da-2*Sa*Sb/q_[highq])/q6
+            )
+        if lowq.any():
+            dab = self.da + self.db
+            dadb2 = self.da**2+self.db**2
+            dadb4 = self.da**4+self.db**4
+            dcq[lowq] = \
+                np.pi/60.*(self.A*dab**4+self.D*self.dadb**3/6. \
+                +(0.25*self.D+np.pi/12.*self.a2*self.dadb)*self.dadb**2*dadb2) *q_[lowq] \
+                - np.pi/3360.*(self.A*dab**6 \
+                +(0.25*self.D+np.pi/12.*self.a2*self.dadb)*self.dadb**2*dadb4 \
+                +(self.D*dab**2+7.*np.pi/10*self.dadb**2)*self.dadb**3/3.) *q3[lowq]
+        return dcq

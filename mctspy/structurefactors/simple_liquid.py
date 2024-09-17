@@ -94,7 +94,7 @@ class hssPY (object):
 
         Returns
         -------
-        cq : array_like
+        dcq : array_like
             Derivative of the DCF evaluated on the given grid.
         """
         q2 = q*q;

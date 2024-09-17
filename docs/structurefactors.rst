@@ -1,6 +1,35 @@
 Static Structure Factors
 ========================
 
+The common MCT approximations involve coupling coefficients that are
+set by the equilibrium static structure of the fluid. Most prominently,
+there enter the static structure factor :math:`S(q)` and the associated
+direct correlation function (DCF) :math:`c(q)`, connected by the
+Ornstein-Zernike equation. For a "simple liquid", i.e., a one-component
+fluid of particles that are fully described by their positionts,
+one has
+
+.. math::
+
+    S(q)=\frac1{1-\rho c(q)}
+
+
+In the case of mixtures, the partial static structure factors are needed.
+There are several conventions for these.
+Note that the convention we use is
+
+.. math::
+
+    \boldsymbol S(q) = \left[1 - \boldsymbol\rho^{1/2}\cdot
+        \boldsymbol c(q)\cdot\boldsymbol\rho^{1/2}\right]^{-1}
+
+where :math:`\boldsymbol\rho` is the diagonal matrix with the partial
+number densities as its entries. This implies that the structure-factor
+matrix is normalized such that for large wave number it approaches the
+unit matrix. The conventional static structure factor is obtained
+by multiplying with :math:`\boldsymbol\rho^{1/2}` from both sides again.
+
+
 Simple Liquids (3D)
 -------------------
 
@@ -300,18 +329,54 @@ Mixtures (3D)
         (d_\alpha d_\beta)^3+\frac16D_{\alpha\beta}(d_\alpha d_\beta)^4
         \right)\end{align}
 
-    Note that the convention we use is
+    Also the derivative of the DCF is implemented analytically,
 
     .. math::
 
-        \boldsymbol S(q) = \left[1 - \boldsymbol\rho^{1/2}\cdot
-            \boldsymbol c(q)\cdot\boldsymbol\rho^{1/2}\right]^{-1}
+        \begin{align} c'_{\alpha\beta}(q)&=4\pi\left(
+        -A_{\alpha\beta}\frac{d_\alpha+d_\beta}2
+        \frac{\cos(qd_\alpha/2)\sin(qd_\beta/2)
+        +\cos(qd_\beta/2)\sin(qd_\alpha/2)}{q^2}
+        \right. \\ &\left.
+        -\left(2A_{\alpha\beta}+B_{\alpha\beta}\frac{d_\alpha+d_\beta}2\right)
+        \frac{\cos(qd_\alpha/2)\cos(qd_\beta/2)
+        -\sin(qd_\alpha/2)\sin(qd_\beta/2)}{q^3}
+        +3B_{\alpha\beta}\frac{\cos(qd_\alpha/2)\sin(qd_\beta/2)
+        +\cos(qd_\beta/2)\sin(qd_\alpha/2)}{q^4}
+        \right. \\ &\left.
+        -D_{\alpha\beta}\frac{\cos(qd_\alpha/2)\sin(qd_\beta/2)d_\alpha
+        +\cos(qd_\beta/2)\sin(qd_\alpha/2)d_\beta}{2q^4}
+        +D_{\alpha\beta}\frac{4\sin(qd_\alpha/2)\sin(qd_\beta/2)}{q^5}
+        \right. \\ &\left.
+        +\pi a_2\frac{\cos(qd_\alpha/2)\sin(qd_\beta/2)d_\alpha d_\beta^2
+        +\cos(qd_\beta/2)\sin(qd_\alpha/2)d_\beta d_\alpha^2}{2q^4}
+        +6\pi a_2\frac{\cos(qd_\alpha/2)\cos(qd_\beta/2)d_\alpha d_\beta}{q^5}
+        \right. \\ &\left.
+        -\pi a_2\frac{\sin(qd_\alpha/2)\sin(qd_\beta/2)(d_\alpha^2+d_\beta^2)}
+          {q^5}
+        -12\pi a_2\frac{\cos(qd_\alpha/2)\sin(qd_\beta/2)d_\alpha
+         +\cos(qd_\beta/2)\sin(qd_\alpha/2)d_\beta-2\sin(qd_\alpha/2)
+         \sin(qd_\beta/2)/q}{q^6}
+         \end{align}
 
-    where :math:`\boldsymbol\rho` is the diagonal matrix with the partial
-    number densities as its entries. This implies that the structure-factor
-    matrix is normalized such that for large wave number it approaches the
-    unit matrix. The conventional static structure factor is obtained
-    by multiplying with :math:`\boldsymbol\rho^{1/2}` from both sides again.
+    with its low-wave-number expansion
+
+    .. math::
+
+        c'_{\alpha\beta}(q)=\frac{\pi}{60}\left(
+        A_{\alpha\beta}(d_\alpha+d_\beta)^4+\frac16D_{\alpha\beta}
+        (d_\alpha d_\beta)^3+\left(\frac14D_{\alpha\beta}+\frac{a_2\pi}{12}
+        (d_\alpha d_\beta)\right)
+        (d_\alpha d_\beta)^2(d_\alpha^2+d_\beta^2)\right)q\\
+        -\frac1{3!}\frac{\pi}{560}\left(
+        A_{\alpha\beta}(d_\alpha+d_\beta)^6+\left(\frac14D_{\alpha\beta}
+        +\frac{\pi}{12}a_2(d_\alpha d_\beta)\right)
+        (d_\alpha d_\beta)^2(d_\alpha^4+d_\beta^4)
+        +\frac13\left(D_{\alpha\beta}(d_\alpha+d_\beta)^2+\frac{7\pi}{10}a_2
+        (d_\alpha d_\beta)^2\right) (d_\alpha d_\beta)^3
+        +\frac16 D_{\alpha\beta}(d_\alpha d_\beta)^4
+        \right)q^3+{\mathcal O}(q^5)
+
 
     .. [4] R. J. Baxter, J. Chem. Phys. 52, 4559 (1970), `DOI:10.1063/1.1673684 <https://doi.org/10.1063/1.1673684>`_
 
