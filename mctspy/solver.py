@@ -4,7 +4,7 @@ from numba import njit
 
 import h5py
 
-from .__util__ import model_base, loaded_model
+from .__util__ import model_base, loaded_model, np_isclose
 
 
 @njit
@@ -96,7 +96,7 @@ def _solve_block_mat (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, M, kernel, maxi
             for q in range(M):
                 newphi[q] = Ainv[q] @ m[i,q] @ B[q] - C[q]
             iterations += 1
-            if np.isclose(newphi.reshape(-1).view('float'), phi[i].reshape(-1),
+            if np_isclose(newphi.reshape(-1), phi[i].reshape(-1),
                           rtol=accuracy, atol=accuracy).all():
                 converged = True
                 phi[i,...] = newphi

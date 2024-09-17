@@ -113,3 +113,23 @@ def np_gradient(f,k):
     df_dk[0] = (f[1]-f[0])/(k[1]-k[0])
     df_dk[-1] = (f[-1]-f[-2])/(k[-1]-k[-2])
     return df_dk
+
+# numba does not support np.isclose with complex arrays
+# we need to patch around that
+
+def np_isclose_impl(a, b, rtol, atol):
+    return np.isclose(a, b, rtol=rtol, atol=atol)
+
+@nb.extending.overload(np_isclose_impl)
+def np_isclose_impl_overload(a, b, rtol, atol):
+    if a.dtype == nb.complex128:
+        def np_isclose_complex(a, b, rtol, atol):
+            return np.isclose(a.real, b.real, rtol=rtol, atol=atol) \
+                 & np.isclose(a.imag, b.imag, rtol=rtol, atol=atol)
+        return np_isclose_complex
+    else:
+        return np_isclose_impl
+
+@nb.njit
+def np_isclose(a, b, rtol=1e-5, atol=1e-8):
+    return np_isclose_impl(a, b, rtol, atol)
