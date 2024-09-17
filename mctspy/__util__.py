@@ -24,6 +24,8 @@ def void(nparray):
 
 
 class model_base (object):
+    def __init__ (self):
+        self.dtype = np.dtype(float)
     def __len__ (self):
         return 1
     def matrix_dimension (self):

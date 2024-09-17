@@ -64,8 +64,8 @@ class nonergodicity_parameter (object):
         self.maxiter = maxiter
         self.dim = model.matrix_dimension()
         self.M = len(model)
-        self.f_ = np.zeros((1,self.M*self.dim**2))
-        self.m_ = np.zeros((1,self.M*self.dim**2))
+        self.f_ = np.zeros((1,self.M*self.dim**2),dtype=model.dtype)
+        self.m_ = np.zeros((1,self.M*self.dim**2),dtype=model.dtype)
         self.jit_kernel = model.get_kernel()
 
     def solve (self):
@@ -139,8 +139,8 @@ class eigenvalue (object):
         """
         f = self.nep.f_[0]
         model = self.nep.model
-        self.e = np.zeros(len(model))
-        self.ehat = np.zeros(len(model))
+        self.e = np.zeros(len(model),dtype=model.dtype)
+        self.ehat = np.zeros(len(model),dtype=model.dtype)
         self.eval = _esolve(self.e, self.dm, f, len(model), self.maxiter, self.accuracy)
         self.eval2 = _ehatsolve(self.ehat, self.dmhat, f, len(model), self.maxiter, self.accuracy)
         if self.eval > 0:

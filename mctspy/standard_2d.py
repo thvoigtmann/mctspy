@@ -69,6 +69,7 @@ class simple_liquid_model_2d (model_base):
     The integration is based on the procedure outlined by Caraglio et al (2020).
     """
     def __init__ (self, Sq, q, D0=1.0):
+        model_base.__init__(self)
         self.rho = Sq.density()
         self.q = q
         self.sq, self.cq = Sq.Sq(q)

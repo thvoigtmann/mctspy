@@ -36,6 +36,7 @@ class generic (model_base):
 
     """
     def __init__ (self, func, M=1):
+        model_base.__init__(self)
         self.func = njit(func)
         self.M = M
     def __len__ (self):
@@ -54,6 +55,7 @@ class f12model (model_base):
     :math:`m[f] = v_1 f + v_2 f^2`.
     """
     def __init__ (self, v1, v2):
+        model_base.__init__(self)
         self.v1 = v1
         self.v2 = v2
     def __len__ (self):
@@ -163,6 +165,7 @@ class sjoegren_model (model_base):
     model, and sets :math:`m^s[f^s] = v_s f f^c` where :math:`f` is taken
     from the base model."""
     def __init__ (self, vs, base_model):
+        model_base.__init__(self)
         self.vs = vs
         self.base = base_model
     def __len__ (self):
@@ -180,6 +183,7 @@ class sjoegren_model (model_base):
 
 class msd_model (model_base):
     def __init__ (self, vs, base_model):
+        model_base.__init__(self)
         self.vs = vs
         self.base = base_model
     def __len__ (self):
@@ -200,6 +204,7 @@ class bosse_krieger_model (model_base):
     A two-correlator model famous for the discussion of higher-order
     singularities."""
     def __init__ (self, v1, v2, v3):
+        model_base.__init__(self)
         self.v1 = v1
         self.v2 = v2
         self.v3 = v3

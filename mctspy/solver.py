@@ -188,19 +188,19 @@ class correlator (object):
         self.maxinit = maxinit
         self.mdimen = len(model)
         self.dim = model.matrix_dimension()
-        self.phi_ = np.zeros((self.blocksize,self.mdimen*self.dim**2))
-        self.m_ = np.zeros((self.blocksize,self.mdimen*self.dim**2))
-        self.dPhi_ = np.zeros((self.halfblocksize+1,self.mdimen*self.dim**2))
-        self.dM_ = np.zeros((self.halfblocksize+1,self.mdimen*self.dim**2))
+        self.phi_ = np.zeros((self.blocksize,self.mdimen*self.dim**2),dtype=model.dtype)
+        self.m_ = np.zeros((self.blocksize,self.mdimen*self.dim**2),dtype=model.dtype)
+        self.dPhi_ = np.zeros((self.halfblocksize+1,self.mdimen*self.dim**2),dtype=model.dtype)
+        self.dM_ = np.zeros((self.halfblocksize+1,self.mdimen*self.dim**2),dtype=model.dtype)
         self.store = store
         if store:
             self.t = np.zeros(self.halfblocksize*(self.blocks+1))
             if model.scalar():
-                self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen*self.dim**2))
-                self.m = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen*self.dim**2))
+                self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen*self.dim**2),dtype=model.dtype)
+                self.m = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen*self.dim**2),dtype=model.dtype)
             else:
-                self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen,self.dim,self.dim))
-                self.m = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen,self.dim,self.dim))
+                self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen,self.dim,self.dim),dtype=model.dtype)
+                self.m = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen,self.dim,self.dim),dtype=model.dtype)
 
         self.maxiter = maxiter
         self.accuracy = accuracy

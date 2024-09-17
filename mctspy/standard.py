@@ -8,6 +8,7 @@ def _dq (q):
 
 class simple_liquid_model (model_base):
     def __init__ (self, Sq, q, D0=1.0):
+        model_base.__init__(self)
         self.rho = Sq.density()
         self.q = q
         self.sq, self.cq = Sq.Sq(q)
@@ -160,6 +161,7 @@ class simple_liquid_model (model_base):
 
 class tagged_particle_model (model_base):
     def __init__ (self, base_model, cs, D0s=1.0):
+        model_base.__init__(self)
         self.base = base_model
         self.q = base_model.q
         self.cs = cs.cq(self.q)
@@ -269,6 +271,7 @@ class tagged_particle_model (model_base):
 
 class tagged_particle_q0 (model_base):
     def __init__ (self, base_model):
+        model_base.__init__(self)
         self.base = base_model
         self.__init_vertices__()
     def __len__ (self):
@@ -305,20 +308,18 @@ class tagged_particle_q0 (model_base):
 
 class tagged_particle_ngp (tagged_particle_q0):
     """Standard model for the non-Gaussian parameter.
+
+    Parameters
+    ----------
+    base_model : object
+        A model representing the mean-squared displacement (MSD,
+        i.e. zero-wavenumber limit of a tagged-particle kernel model).
+        In particular, this model must itself define a base that
+        corresponds to the finite-wavenumber tagged-particle kernel,
+        which in turn nneds to define a base that is the collective
+        finite-wavenumber kernel.
     """
     def __init__ (self, base_model):
-        """Initialize a NGP model.
-
-        Parameters
-        ----------
-        base_model : object
-            A model representing the mean-squared displacement (MSD,
-            i.e. zero-wavenumber limit of a tagged-particle kernel model).
-            In particular, this model must itself define a base that
-            corresponds to the finite-wavenumber tagged-particle kernel,
-            which in turn nneds to define a base that is the collective
-            finite-wavenumber kernel.
-        """
         tagged_particle_q0.__init__ (self, base_model.base)
         self.msdbase = base_model
     #def __init__ (self, base_model):
