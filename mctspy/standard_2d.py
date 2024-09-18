@@ -17,8 +17,8 @@ def g0(f,x,x0,x1):
     G1 = -np.sqrt(1-x*x)
     G00,G01 = np.arcsin(x0),np.arcsin(x1)
     G10,G11 = -np.sqrt(1-x0*x0),-np.sqrt(1-x1*x1)
-    b = np.diff(f)/np.diff(x) # axis=-1 is default here
-    a = f[...,:-1] - x[...,:-1]*b
+    b = (f[1:,...] - f[:-1,...]) / (x[1:,...] - x[:-1,...])
+    a = f[:-1,...] - x[:-1,...]*b
     if len(x)>1:
         bd1 = a[0]*(G0[0]-G00) + b[0]*(G1[0]-G10)
         bd2 = a[-1]*(G01-G0[-1]) + b[-1]*(G11-G1[-1])
@@ -33,8 +33,8 @@ def g1(f,x,x0,x1):
     G10,G11 = -np.sqrt(1-x0*x0),-np.sqrt(1-x1*x1)
     G20,G21 = 0.5*np.arcsin(x0) - 0.5*x0*np.sqrt(1-x0*x0), \
               0.5*np.arcsin(x1) - 0.5*x1*np.sqrt(1-x1*x1)
-    b = np.diff(f)/np.diff(x) # axis=-1 is default here
-    a = f[...,:-1] - x[...,:-1]*b
+    b = (f[1:,...] - f[:-1,...]) / (x[1:,...] - x[:-1,...])
+    a = f[:-1,...] - x[:-1,...]*b
     if len(x)>1:
         bd1 = a[0]*(G1[0]-G10) + b[0]*(G2[0]-G20)
         bd2 = a[-1]*(G11-G1[-1]) + b[-1]*(G21-G2[-1])
@@ -50,8 +50,8 @@ def g2(f,x,x0,x1):
               0.5*np.arcsin(x1) - 0.5*x1*np.sqrt(1-x1*x1)
     G30,G31 = (-1./3)*np.sqrt(1-x0*x0) * (2+x0*x0), \
               (-1./3)*np.sqrt(1-x1*x1) * (2+x1*x1)
-    b = np.diff(f)/np.diff(x) # axis=-1 is default here
-    a = f[...,:-1] - x[...,:-1]*b
+    b = (f[1:,...] - f[:-1,...]) / (x[1:,...] - x[:-1,...])
+    a = f[:-1,...] - x[:-1,...]*b
     if len(x)>1:
         bd1 = a[0]*(G2[0]-G20) + b[0]*(G3[0]-G30)
         bd2 = a[-1]*(G21-G2[-1]) + b[-1]*(G31-G3[-1])
