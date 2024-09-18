@@ -222,7 +222,7 @@ Simple Liquids (2D)
         c(q) &= \frac{\pi}{6(1-\varphi)^3}q^2\left[
         -\frac54(1-\varphi)^2q^2J_0(q/2)^2
         \right. \\ &\left.
-        +\left(4((\varphi-20)\varphi+7)+\frac54(1-\varphi)^2q^2\rigth)
+        +\left(4((\varphi-20)\varphi+7)+\frac54(1-\varphi)^2q^2\right)
         J_1(q/2)^2 \right.\\ &\left.
         +2(\varphi-13)(1-\varphi)qJ_1(q/2)J_0(q/2)\right]
         \end{align}
