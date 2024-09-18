@@ -50,6 +50,6 @@ for calculating the one-sided cosine- and sine-transforms
 
 .. code-block:: python
 
-    x_,w_ = np.meshgrid(x,w)
+    t_,w_ = np.meshgrid(t,w)
     f_,_ = np.meshgrid(f,w)
-    fw = mct.util.filon_cos_transform(f_,w_)
+    fw = mct.util.filon_cos_transform(f_,t_,w_)
