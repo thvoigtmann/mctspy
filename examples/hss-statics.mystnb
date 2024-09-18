@@ -1,0 +1,186 @@
+---
+jupytext:
+  text_representation:
+    extension: .mystnb
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.16.4
+kernelspec:
+  display_name: Python 3 (ipykernel)
+  language: python
+  name: python3
+---
+
+# Static Structure Factors
+
++++
+
+MCT requires as input information on the equilibrium static structure of the fluid. In the most common form of MCT vertices, this requires the static structure factor $S(q)$ and the direct correlation function (DCF) $c(q)$. The two quantities are related by
+$$ S(q)=\frac1{1-\rho c(q)} $$
+where $\rho$ is the number density of the fluid.
+
+Relating these functions to the interactions between the particles is thesubject of liquid-state theories. For the common fluids, approximation schemes are used, and some commonly used approximations in the context of MCT are available in the `mctspy.structurefactors` module.
+
+```{code-cell} ipython3
+import numpy as np
+import matplotlib.pyplot as plt
+```
+
+```{code-cell} ipython3
+import mctspy as mct
+```
+
+## Hard-Sphere System
+
++++
+
+### Monodisperse
+
++++
+
+For the hard-sphere system in three dimensions, the perhaps most famous approximation is the Percus-Yevick (PY) structure factor. It has the advantage of not involving any fit parameter. However, it somewhat overestimates structural order (which is relevant for MCT) and it does not ensure "thermodynamic consistency", i.e., that the compressibilities calculated from the low-$q$ limit of $S(q)$ and from the pair correlation function $g(r)$ are consistent with each other (largely irrelevant for MCT). A common empirical correction is known as the Verlet-Weis (VW) structure factor.
+
+```{code-cell} ipython3
+pySq = mct.structurefactors.hssPY(0.515)
+vwSq = mct.structurefactors.hssVW(0.515)
+qgrid = np.linspace(0.,40,400)
+sq, cq = pySq.Sq(qgrid)
+sqvw, cqvw = vwSq.Sq(qgrid[1:])
+plt.plot(qgrid,sq,label='Percus-Yevick (PY)')
+plt.plot(qgrid[1:],sqvw,linestyle='dashed',label='Verlet-Weis (VW)')
+plt.xlabel(r'$q$')
+plt.ylabel(r'$S(q)$')
+plt.legend()
+plt.show()
+```
+
+Some MCT memory kernels (in particular the one relevant for the calculation of the viscosity) require also the derivative of the DCF. For the PY structure factor, the analytical expression involves a lot of cancellations at low $q$, and thus we implement this separately (although for the wave numbers typically used in MCT, the numerical accuracy is often sufficient also from numerical differentiation).
+
+```{code-cell} ipython3
+dcq = pySq.dcq_dq(qgrid)
+```
+
+```{code-cell} ipython3
+plt.plot(qgrid,dcq,label=r'$dc(q)/dq$, PY analytical')
+plt.plot(qgrid,np.gradient(cq,qgrid),label=r'numerical differentiation',linestyle='dashed')
+plt.xlabel(r'$q$')
+plt.ylabel(r"$c'(q)$")
+plt.legend()
+plt.show()
+```
+
+As a side note, observe that the structure functions for hard spheres in 3d decay with a $1/q^2$ envelope for large $q$. This ultimately ensures convergence of the MCT memory integrals for $q\to\infty$.
+
+```{code-cell} ipython3
+plt.plot(qgrid,np.abs(cq),label=r'$|c(q)|$')
+q2=np.linspace(10,40,20)
+plt.plot(q2,np.max(np.abs(cq[10:]))*q2**-2,linestyle='dashed',label=r'$\sim1/q^2$')
+plt.xscale('log')
+plt.yscale('log')
+plt.xlabel(r'$q$')
+plt.ylabel(r'DCF')
+plt.legend()
+plt.show()
+```
+
+### Binary mixture
+
++++
+
+The analytical PY solution is readily extended to arbitrary additive mixtures of hard spheres. We show some examples for a binary mixture. The implementation of the hard-sphere-mixture PY structure factor simply requires to specify a list of partial number densities, and a list of corresponding diameters.
+
+Inspired by experiments on colloidal hard-sphere-like mixtures, the system parameters are specified by the total volume fraction, a size ratio $\delta$ between the species, and a volume concentration of the smaller species $\hat x_B$. We thus convert these numbers into the number densities:
+
+```{code-cell} ipython3
+def from_phi_binary(phi, xb, delta):
+    return np.array([(1-xb)*6/np.pi*phi, xb/delta**3 * 6/np.pi * phi]), \
+           np.array([1.0, delta])
+```
+
+```{code-cell} ipython3
+mixture_Sq = mct.structurefactors.hsmPY(*from_phi_binary(0.515, xb=0.2, delta=0.6))
+```
+
+Another choice of convention is the normalization of the partial structure factors. We employ the variant that is normalized to the unit matrix at large $q$, and denote this $\tilde S_{\alpha\beta}(q)$, where Greek indices label the species. Note that partial structure factors determined from simulation are often normalized to the diagonal matrix of partial densities; also experiental structure factors tend to come in a variety of linear combinations of the quantities we require in MCT.
+
+```{code-cell} ipython3
+sqmix, cqmix = mixture_Sq.Sq(qgrid)
+plt.plot(qgrid,sqmix[:,0,0],label=r'$\tilde S_{\text{AA}}(q)$')
+plt.plot(qgrid,sqmix[:,1,1],label=r'$\tilde S_{\text{BB}}(q)$')
+plt.plot(qgrid,sqmix[:,0,1],label=r'$\tilde S_{\text{AB}}(q)$')
+plt.xlabel(r'$qd_\text{A}$')
+plt.ylabel(r'$\tilde S_{\alpha\beta}(q)$')
+plt.legend()
+plt.show()
+```
+
+The cross-term of the direct correlation function $\tilde c_{\text{AB}}(q)$, in the limit of vanishing concentration of the B species, corresponds to the direct correlation function of a single tracer particle in a host fluid of A particles. This is a commonly used "tagged-particle" extension of MCT for one-component systems; thus this limiting DCF is also directly available through the `mctspy.structurefactors.hssPYtagged` class.
+
+```{code-cell} ipython3
+mixture_Sq0 = mct.structurefactors.hsmPY(*from_phi_binary(0.515, 0.00001, 0.6))
+sqmix0, cqmix0 = mixture_Sq0.Sq(qgrid)
+```
+
+```{code-cell} ipython3
+tagged_cq = mct.structurefactors.hssPYtagged(phi=0.515, delta=0.6)
+cqs = tagged_cq.cq(qgrid)
+```
+
+```{code-cell} ipython3
+plt.plot(qgrid,cqmix0[:,1,0],label=r'$\tilde c_{\text{AB}}(q)$, $x_\text{B}\to0$ from mixture')
+plt.plot(qgrid,cqs,label=r'tagged-particle DCF',linestyle='dashed')
+plt.xlabel(r'$qd_\text{A}$')
+plt.ylabel(r'DCF')
+plt.legend()
+plt.show()
+```
+
+Also the mixture-PY implementation provides specialized functions to evaluate the derivatives of the DCF.
+
+```{code-cell} ipython3
+mix_dc = mixture_Sq.dcq_dq(qgrid)
+plt.plot(qgrid,mix_dc[:,0,0],label=r"$\tilde c'_\text{AA}(q)$")
+plt.plot(qgrid,mix_dc[:,1,1],label=r"$\tilde c'_\text{BB}(q)$")
+plt.plot(qgrid,mix_dc[:,0,1],label=r"$\tilde c'_\text{AB}(q)$")
+plt.xlabel(r'$qd_\text{A}$')
+plt.ylabel('DCF derivative')
+plt.legend()
+plt.show()
+```
+
+## Hard-Disk System
+
++++
+
+While the analytical solution of the Percus-Yevick approximation to the structure factors of hard spheres is possible in any odd dimension, in even dimensions the situation is a bit more tricky.
+
+A hard-disk structure factor that works well with MCT is the one derived from fundamental measure theory (FMT). The `mctspy.structurefactors.hssFMT2d` class implements the expression derived by Thorneywork et al. (2018).
+
+```{code-cell} ipython3
+fmtSq = mct.structurefactors.hssFMT2d(0.6949)
+qgrid2d = np.linspace(0,40,400)
+sq2d, cq2d = fmtSq.Sq(qgrid)
+plt.plot(qgrid2d,sq2d,label=r'hard-disk $S(q)$, FMT')
+plt.xlabel(r'$q$')
+plt.ylabel(r'$S(q)$')
+plt.legend()
+plt.show()
+```
+
+2d structure factors are different than 3d ones, because the asymptotic decay at large $q$ is slower. This matches the dimensional factors in the MCT integral.
+
+```{code-cell} ipython3
+plt.plot(qgrid2d,np.abs(cq2d),label=r'$|c(q)|$ FMT')
+q2=np.linspace(10,40,20)
+plt.plot(q2,np.max(np.abs(cq2d[25:]))*q2**-1.5,linestyle='dotted',label=r'$\sim1/q^{(d+1)/2}$')
+plt.xscale('log')
+plt.yscale('log')
+plt.xlabel(r'$q$')
+plt.ylabel(r'$|c(q)|$')
+plt.legend()
+plt.show()
+```
+
+```{code-cell} ipython3
+
+```
