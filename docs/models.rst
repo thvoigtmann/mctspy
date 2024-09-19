@@ -392,7 +392,8 @@ schematic models.
     :members:
     :inherited-members:
 
-    This model is the tensorial extension of `mctspy.f12gammadot_model`.
+    This model is the tensorial extension of
+    :py:class:`mctspy.f12gammadot_model`.
     While it also works under simple shear, it is computationally more
     expensive since it needs to calculate the deformation tensors as
     matrix-exponentials of a given shear-rate tensor.
@@ -415,7 +416,7 @@ schematic models.
         h_{tt'}([\boldsymbol B])=\frac{1}{1 + (\nu I_1(\boldsymbol B_{tt'})
             + (1-\nu)I_2(\boldsymbol B_{tt'}) - 3)/\gamma_c^2}
 
-    where :math:`I_1(\boldsymbol B)=\ext{tr}\boldsymbol B` and
+    where :math:`I_1(\boldsymbol B)=\text{tr}\boldsymbol B` and
     :math:`I_2(\boldsymbol B)=\text{tr}\boldsymbol B^{-1}` are the two
     invariants of the Finger tensor (valid in incompressible flow).
 
@@ -427,7 +428,7 @@ schematic models.
         \partial_t\phi(t) + \phi(t) + \hat h_{t0}([\boldsymbol B])\int_0^t
         m(t-t')\partial_{t'}\phi(t')\,dt' = 0
 
-    with setting :math`\hat h=h`. In this form, the model implemented here
+    with setting :math:`\hat h=h`. In this form, the model implemented here
     is the one used by Brader et al. [Brader2009]_. Note that since the
     memory kernel is evaluated at time :math:`t-t'`, this model implies
     two strain reduction factors, one given by :math:`\boldsymbol B_{t,t'}`,
