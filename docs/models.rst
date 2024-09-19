@@ -1,5 +1,6 @@
 MCT Models
 ==========
+.. include:: <isolat1.txt>
 
 Simple Liquids
 --------------
@@ -48,6 +49,11 @@ Common Additions to Simple-Liquid Models
     :members:
     :inherited-members:
 
+    The non-Gaussian parameter :math:`\alpha_2(t)` is derived from
+    the next-to-leading terms in the :math:`q\to0` limit of the MCT
+    evolution equation. This was first derived and discussed in detail
+    in [Fuchs1998]_.
+
     In essence, we define the following two memory kernels that correspond
     to those needed for the MCT equations for the NGP:
 
@@ -69,6 +75,13 @@ Common Additions to Simple-Liquid Models
     re-calculated (for the sake of modularity, since calculation of the MSD
     is kept to its separate solver).
 
+    The equations itself are documented with
+    :py:class:`mctspy.non_gaussian_parameter` with which this model is
+    intended to be used.
+
+    .. [Fuchs1998] M. Fuchs, W. G\ |ouml|\ tze, and M. R. Mayr,
+       Phys. Rev. E 58, 3384 (1998),
+       `DOI:10.1103/PhysRevE.58.3384 <https://doi.org/10.1103/PhysRevE.58.3384>`_
 
 Mixtures
 --------
@@ -97,6 +110,8 @@ element of the correlator matrix then is the tagged-particle correlator.
 .. autoclass:: mctspy.mixture_model
     :members:
     :inherited-members:
+
+    This is the model studied, for example in [Goetze2003]_.
 
     The MCT memory-kernel expression for mixtures is given by
 
@@ -245,7 +260,9 @@ element of the correlator matrix then is the tagged-particle correlator.
     :math:`\mathcal O(1)` operation when its value for the previous
     outer wave number is known.
 
-
+    .. [Goetze2003] W. G\ |ouml|\ tze and Th. Voigtmann,
+       Phys. Rev. E 67, 021502 (2003),
+       `DOI:10.1103/PhysRevE.67.021502 <https://doi.org/10.1103/PhysRevE.67.021502>`_
 
 
 Two-dimensional MCT
@@ -333,7 +350,6 @@ introduced in the 3d discretization no longer work in 2d.
 
 Schematic Models
 ----------------
-.. include:: <isolat1.txt>
 
 Schematic models are ad-hoc simplifcations of the MCT equations to one or
 at most a few correlation functions. They are often formulated as "dropping

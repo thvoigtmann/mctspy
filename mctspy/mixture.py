@@ -7,6 +7,20 @@ def _dq (q):
     return np.diff(q, append=2*q[-1]-q[-2])
 
 class mixture_model (model_base):
+    """MCT model for simple-liquid mixtures.
+
+    Parameters
+    ----------
+    Sq : structure_factor
+        Should implement a structure factor; determines the number of
+        species and concentrations used in the model.
+    q : array_like
+        Wave number grid, should follow the convention.
+    D0 : float or array_like, default: 1.0
+        The short-time diffusion coefficients; either an array whose
+        length matches the number of species defined in the structure
+        factor, or a scalar value that will be applied to all species.
+    """
     def __init__ (self, Sq, q, D0=1.0):
         model_base.__init__(self)
         self.rho = Sq.density()
