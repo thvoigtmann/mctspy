@@ -1,8 +1,9 @@
 import numpy as np
 import scipy.linalg as la
 
-from numba import njit
+from numba import njit, complex128
 from .__util__ import model_base, void, nparray
+from .standard_2d import g0, g1, g2
 
 def _dq (q):
     return np.diff(q, append=2*q[-1]-q[-2])
@@ -38,7 +39,7 @@ class abp_model_2d (model_base):
         return self.omega_T(self.L)
     def Wq (self):
         res = self.WqSq()
-        res[:,self.L,self.L] = res[:,self.L,self.L] * self.sq
+        res[:,self.L,self.L] = res[:,self.L,self.L] / self.sq
         return res
     def WqSq (self):
         wTinv_wR = np.zeros((self.M,self.S,self.S),dtype=self.dtype)
@@ -93,12 +94,58 @@ class abp_model_2d (model_base):
                     self.wTinv[:,L+l,L+ld] -= u0*wTinv0[:,L+l,L] * \
                         (wTinv0[:,L+1,L+ld]+wTinv0[:,L-1,L+ld])/ \
                         (self.q**2 + u0*(wTinv0[:,L+1,L]+wTinv0[:,L-1,L]))
+        self.__A__ = np.zeros((self.M,self.M),dtype=self.dtype)
+        self.__B__ = np.zeros((self.M,self.M,self.S),dtype=self.dtype)
+        self.__C__ = np.zeros((self.M,self.M,self.S),dtype=self.dtype)
+        self.__D__ = np.zeros((self.M,self.M,self.S,self.S),dtype=self.dtype)
     def make_kernel (self):
-        M, S = self.M, self.S
+        M, S, L = self.M, self.S, self.L
+        q = self.q
+        pre = self.rho*self.sq/(8*np.pi**2*q**2)
+        Aqk = void(self.__A__)
+        Bqk = void(self.__B__)
+        Cqk = void(self.__C__)
+        Dqk = void(self.__D__)
+        omega_T_inv = void(self.wTinv)
+        c = self.cq
         @njit
         def ker (m, phi, i, t):
+            print("I",i)
+            A = nparray(Aqk)
+            B = nparray(Bqk)
+            C = nparray(Cqk)
+            D = nparray(Dqk)
+            wTinv = nparray(omega_T_inv)
             for qi in range(M):
-                for a in range(S):
-                    for b in range(S):
-                        m[qi,a,b] = 0.+1j*0 # mq * pre / q[qi]
+                for ki in range(M):
+                    if ki <= qi:
+                        pmin = q[qi] - q[ki]
+                    else:
+                        pmin = q[ki] - q[qi]
+                    pmax = q[qi] + q[ki]
+                    x = (q[qi]**2 + q[ki]**2 - q**2) / (2*q[qi]*q[ki])
+                    mask = (x>=-1) & (x<=1) & (q>=pmin)
+                    x = x[mask]
+                    p = np.arange(M)[mask]
+                    minval = -1.0
+                    if pmax > q[-1]:
+                        minval = x[-1]
+                    A[qi,ki] = 2*q[qi]**4 * g0(phi[p,L,L]*c[p]**2,x,1,minval) \
+                      - 4*q[qi]**3*q[ki] * g1(phi[p,L,L]*c[p]**2,x,1,minval) \
+                      + 2*q[qi]**2*q[ki]**2 * g2(phi[p,L,L]*c[p]**2,x,1,minval)
+                    g1phi = g1(phi[p,:,:].T*c[ki]*c[p],x,1,minval).T
+                    g2phi = g2(phi[p,:,:].T*c[ki]*c[p],x,1,minval).T
+                    B[qi,ki,:] = 2*q[qi]**3*q[ki] * g1phi[L,:] \
+                      - 2*q[qi]**2*q[ki]**2 * g2phi[L,:]
+                    C[qi,ki,:] = 2*q[qi]**3*q[ki] * g1phi[:,L] \
+                      - 2*q[qi]**2*q[ki]**2 * g2phi[:,L]
+                    D[qi,ki,:,:] = 2*q[qi]**2*q[ki]**2 * g2((phi[p,:,:]*c[ki]**2).T,x,1,minval).T
+            mq = np.zeros((M,S,S),dtype=complex128)
+            mq = -pre[:,None,None] * ( \
+                np.sum((q[:-1,None,None]*phi[:-1,:,:]*A[:,:-1,None,None] + q[1:,None,None]*phi[1:,:,:]*A[:,1:,None,None])/2 * np.diff(q)[:,None,None], axis=1) \
+                + np.sum((q[:-1,None,None]*phi[:-1,:,L,None]*B[:,:-1,None,:] + q[1:,None,None]*phi[1:,:,L,None]*B[:,1:,None,:])/2 * np.diff(q)[:,None,None], axis=1) \
+                + np.sum((q[:-1,None,None]*phi[:-1,L,None,:]*C[:,:-1,:,None] + q[1:,None,None]*phi[1:,L,None,:]*C[:,1:,:,None])/2 * np.diff(q)[:,None,None], axis=1) \
+                + np.sum((q[:-1,None,None]*phi[:-1,L,L,None,None]*D[:,:-1,:,:] + q[1:,None,None]*phi[1:,L,L,None,None]*D[:,1:,:,:])/2 * np.diff(q)[:,None,None], axis=1))
+            for qi in range(M):
+                m[qi,:,:] = np.dot(wTinv[qi],np.dot(mq[qi],wTinv[qi]))
         return ker
