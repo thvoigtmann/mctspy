@@ -49,7 +49,6 @@ def g2(f,x,x0,x1):
     G30,G31 = (-1./3)*np.sqrt(1-x0*x0) * (2+x0*x0), \
               (-1./3)*np.sqrt(1-x1*x1) * (2+x1*x1)
     b = (f[...,1:] - f[...,:-1]) / np.diff(x)
-    #b = np.diff(f)/np.diff(x) # axis=-1 is default here
     a = f[...,:-1] - x[:-1]*b
     if len(x)>1:
         bd1 = a[...,0]*(G2[0]-G20) + b[...,0]*(G3[0]-G30)
@@ -58,6 +57,54 @@ def g2(f,x,x0,x1):
         return f[...,0]*(G21-G20)
     return np.sum(a*np.diff(G2) + b*np.diff(G3),axis=-1) + bd1 + bd2
 
+@njit
+def g0v(f,x_,x0,x1,mask,G0_,G1_):
+    G00,G01 = np.arcsin(x0),np.arcsin(x1)
+    G10,G11 = -np.sqrt(1-x0*x0),-np.sqrt(1-x1*x1)
+    x = x_[mask]
+    G0 = G0_[mask]
+    G1 = G1_[mask]
+    b = (f[...,1:] - f[...,:-1]) / np.diff(x)
+    a = f[...,:-1] - x[:-1]*b
+    if len(x)>1:
+        bd1 = a[...,0]*(G0[0]-G00) + b[...,0]*(G1[0]-G10)
+        bd2 = a[...,-1]*(G01-G0[-1]) + b[...,-1]*(G11-G1[-1])
+    else:
+        return f[...,0]*(G01-G00)
+    return np.sum(a*np.diff(G0) + b*np.diff(G1),axis=-1) + bd1 + bd2
+@njit
+def g1v(f,x_,x0,x1,mask,G1_,G2_):
+    G10,G11 = -np.sqrt(1-x0*x0),-np.sqrt(1-x1*x1)
+    G20,G21 = 0.5*np.arcsin(x0) - 0.5*x0*np.sqrt(1-x0*x0), \
+              0.5*np.arcsin(x1) - 0.5*x1*np.sqrt(1-x1*x1)
+    x = x_[mask]
+    G1 = G1_[mask]
+    G2 = G2_[mask]
+    b = (f[...,1:] - f[...,:-1]) / np.diff(x)
+    a = f[...,:-1] - x[:-1]*b
+    if len(x)>1:
+        bd1 = a[...,0]*(G1[0]-G10) + b[...,0]*(G2[0]-G20)
+        bd2 = a[...,-1]*(G11-G1[-1]) + b[...,-1]*(G21-G2[-1])
+    else:
+        return f[...,0]*(G11-G10)
+    return np.sum(a*np.diff(G1) + b*np.diff(G2),axis=-1) + bd1 + bd2
+@njit
+def g2v(f,x_,x0,x1,mask,G2_,G3_):
+    G20,G21 = 0.5*np.arcsin(x0) - 0.5*x0*np.sqrt(1-x0*x0), \
+              0.5*np.arcsin(x1) - 0.5*x1*np.sqrt(1-x1*x1)
+    G30,G31 = (-1./3)*np.sqrt(1-x0*x0) * (2+x0*x0), \
+              (-1./3)*np.sqrt(1-x1*x1) * (2+x1*x1)
+    x = x_[mask]
+    G2 = G2_[mask]
+    G3 = G3_[mask]
+    b = (f[...,1:] - f[...,:-1]) / np.diff(x)
+    a = f[...,:-1] - x[:-1]*b
+    if len(x)>1:
+        bd1 = a[...,0]*(G2[0]-G20) + b[...,0]*(G3[0]-G30)
+        bd2 = a[...,-1]*(G21-G2[-1]) + b[...,-1]*(G31-G3[-1])
+    else:
+        return f[...,0]*(G21-G20)
+    return np.sum(a*np.diff(G2) + b*np.diff(G3),axis=-1) + bd1 + bd2
 
 
 class simple_liquid_model_2d (model_base):
@@ -82,7 +129,13 @@ class simple_liquid_model_2d (model_base):
         return self.sq/self.D0
     def __init_vertices__ (self):
         self.__A__ = np.zeros((self.M,self.M))
-        if False:
+        if True:
+            self.__x__ = np.zeros((self.M,self.M,self.M))
+            self.__mask__ = np.zeros((self.M,self.M,self.M),dtype=bool)
+            self.__G0__ = np.zeros((self.M,self.M,self.M))
+            self.__G1__ = np.zeros((self.M,self.M,self.M))
+            self.__G2__ = np.zeros((self.M,self.M,self.M))
+            self.__G3__ = np.zeros((self.M,self.M,self.M))
             M = self.M
             q = self.q
             for qi in range(M):
@@ -95,10 +148,16 @@ class simple_liquid_model_2d (model_base):
                     if pmax > M:
                         pmax = M
                     assert(pmax >= pmin)
-                    p = np.arange(pmin,pmax)
-                    x = (q[qi]**2 + q[ki]**2 - q[p]**2) / (2*q[qi]*q[ki])
-                    print(qi,ki,x)
-            quit()
+                    x = (q[qi]**2 + q[ki]**2 - q**2) / (2*q[qi]*q[ki])
+                    mask = (x>=-1) & (x<=1) & (q>=pmin)
+                    self.__x__[qi,ki] = x
+                    self.__mask__[qi,ki] = mask
+                    x_ = x[mask]
+                    self.__G0__[qi,ki][mask] = np.arcsin(x_)
+                    self.__G1__[qi,ki][mask] = -np.sqrt(1-x_*x_)
+                    self.__G2__[qi,ki][mask] = 0.5*np.arcsin(x_) - 0.5*x_*np.sqrt(1-x_*x_)
+                    self.__G3__[qi,ki][mask] = (-1./3)*np.sqrt(1-x_*x_) * (2+x_*x_)
+                    #print(qi,ki,x,mask)
     def make_kernel (self):
         """Kernel factory, two-dimensional MCT for simple liquids.
 
@@ -111,8 +170,36 @@ class simple_liquid_model_2d (model_base):
         M = self.M
         pre = self.rho*self.sq/(8*np.pi**2*q**2)
         Aqk = void(self.__A__)
+        if True:
+            xqk = void(self.__x__)
+            maskqk = void(self.__mask__)
+            G0qk = void(self.__G0__)
+            G1qk = void(self.__G1__)
+            G2qk = void(self.__G2__)
+            G3qk = void(self.__G3__)
         c = self.cq
         S = self.sq
+        if True:
+            @njit
+            def ker (m, phi, i, t):
+                A = nparray(Aqk)
+                x = nparray(xqk)
+                mask = nparray(maskqk)
+                G0 = nparray(G0qk)
+                G1 = nparray(G1qk)
+                G2 = nparray(G2qk)
+                G3 = nparray(G3qk)
+                for qi in range(M):
+                    for ki in range(M):
+                        minval = -1.0
+                        if q[qi] + q[ki] > q[-1]:
+                            minval = x[qi,ki,-1]
+                        p = np.arange(M)[mask[qi,ki]]
+                        A[qi,ki] = 2*q[qi]**4 * g0v(phi[p]*S[p]*c[p]**2,x[qi,ki],1,minval,mask[qi,ki],G0[qi,ki],G1[qi,ki]) \
+                              + 4*q[qi]**3*q[ki] * g1v(phi[p]*S[p]*c[p]*(c[ki]-c[p]),x[qi,ki],1,minval,mask[qi,ki],G1[qi,ki],G2[qi,ki]) \
+                              + 2*q[qi]**2*q[ki]**2 * g2v(phi[p]*S[p]*(c[ki]-c[p])**2,x[qi,ki],1,minval,mask[qi,ki],G2[qi,ki],G3[qi,ki])
+                m[:] = -pre * np.sum((q[:-1]*phi[:-1]*S[:-1]*A[:,:-1] + q[1:]*phi[1:]*S[1:]*A[:,1:])/2 * np.diff(q), axis=-1)
+            return ker
         @njit
         def ker (m, phi, i, t):
             A = nparray(Aqk)
