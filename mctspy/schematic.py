@@ -94,12 +94,19 @@ class f12model (model_base):
 class f12gammadot_model (f12model):
     r"""Schematic F12-gammadot model.
 
-    This sets a single memory kernel to be
-    :math:`m[\phi(t),t] = h(\dot\gamma t)[v_1 \phi(t) + v_2 \phi(t)^2]`.
-    The strain-reduction function is defined to be
-    :math:`h(\gamma)=1/(1+\gamma^2)`.
-    This model was introduced by Fuchs and Cates as a schematic model to
-    calculate the dynamics, especially flow curves under strong shear."""
+    Schematic version of the MCT model for steady shear following the
+    integration-through transients (ITT) approach developed by
+    Fuchs and Cates.
+
+    Parameters
+    ----------
+    v1, v2 : float, float
+        The vertices of the F12 model.
+    gammadot : float, default=0.0
+        The shear rate applied to the model.
+    gammac : float, default=0.1
+        Parameter setting a strain scale for the loss of correlations.
+    """
     def __init__ (self, v1, v2, gammadot=0.0, gammac=0.1):
         f12model.__init__(self, v1, v2)
         self.gammadot = gammadot
@@ -119,7 +126,29 @@ class f12gammadot_tensorial_model (f12gammadot_model):
     r"""Schematic F12-gammadot model, tensorial version.
 
     This is the adaptation of the :py:class:`mctspy.f12gammadot_model`
-    for tensorial flow fields."""
+    for tensorial flow fields.
+
+    Parameters
+    ----------
+    v1, v2 : float, float
+        Vertices of the F12 model.
+    gammadot : float, default: 0.0
+        Flow rate as a scale for the velocity-gradient tensor.
+    gammac : float, default: 0.1
+        Parameter determining the strain scale for the relaxation dynamics.
+    kappa : array_like, optional
+        Velocity gradient tensor, normalized by the flow rate `gammadot`.
+        Must have shape (3,3). The default is the matrix corresponding to
+        simple shear in the xy-plane, i.e., only the [0,1] element different
+        from zero.
+    use_hhat : bool, default: False
+        Flag whether to use the additional strain relaxation factor in
+        front of the memory integral.
+    nu : float, default: 1.0
+        Mixing parameter determining the fraction of the strain reduction
+        that is driven by the first invariant of the Finger tensor over
+        the second invariant.
+    """
     def __init__ (self, v1, v2, gammadot=0.0, gammac=0.1,
                   kappa=np.array([[0,1,0],[0,0,0],[0,0,0]],dtype=float),
                   use_hhat=False, nu=1.0):
