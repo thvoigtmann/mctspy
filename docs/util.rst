@@ -35,9 +35,10 @@ Since the correlator is stored on a non-regular grid spanning many decades
 in time, this requires some thought. We provide routines to calculate
 these integrals following a simple but powerful integration method commonly
 referred to as Filon integration, but actually in the simplified form given
-by Tuck [1]_
+by [Tuck1967]_
 
-.. [1] E. O. Tuck, Math. Comp. 21, 239 (1967), `DOI:10.1090/s0025-5718-67-99892-4 <https://doi.org/10.1090/s0025-5718-67-99892-4>`_
+.. [Tuck1967] E. O. Tuck, Math. Comp. 21, 239 (1967),
+   `DOI:10.1090/s0025-5718-67-99892-4 <https://doi.org/10.1090/s0025-5718-67-99892-4>`_
 
 .. autofunction:: mctspy.util.filon_integrate
 
@@ -47,6 +48,11 @@ by Tuck [1]_
 These are special functions using :py:func:`mctspy.util.filon_integrate`
 for calculating the one-sided cosine- and sine-transforms
 (Fourier-Laplace transforms) of temporal data.
+
+The functions vectorize, so that you can calculate the entire spectrum
+of a function for a set of frequences like this (assuming that `t` and `f`
+are the time and function values on a matching grid, and `w` is an array
+for frequencies):
 
 .. code-block:: python
 

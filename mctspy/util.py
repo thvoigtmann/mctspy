@@ -1,6 +1,5 @@
 import numpy as np
 import scipy
-from .solver import _decimize
 
 class CorrelatorStack(list):
     def solve_all (self, callback=None, stop_on_zero=False):
@@ -104,7 +103,7 @@ def exponents(lambda_val):
     Parameters
     ----------
     lambda_val : float
-        Value of the exponent parameter, must in the range (0.5,1)
+        Value of the exponent parameter, must be in the range (0.5,1).
 
     Returns
     -------
@@ -113,6 +112,49 @@ def exponents(lambda_val):
     """
     return regula_falsi(lambda x:lambda_func(x,lambda_val),0.2,0.3), \
            -regula_falsi(lambda x:lambda_func(x,lambda_val),-2.0,0.0)
+
+__Bll__ = np.array(
+       [0.5 , 0.51, 0.52, 0.53, 0.54, 0.55, 0.56, 0.57, 0.58, 0.59, 0.6 ,
+       0.61, 0.62, 0.63, 0.64, 0.65, 0.66, 0.67, 0.68, 0.69, 0.7 , 0.71,
+       0.72, 0.73, 0.74, 0.75, 0.76, 0.77, 0.78, 0.79, 0.8 , 0.81, 0.82,
+       0.83, 0.84, 0.85, 0.86, 0.87, 0.88, 0.89, 0.9 , 0.91, 0.92, 0.93,
+       0.94, 0.95, 0.96, 0.97, 0.98])
+__BlB__ = np.array(
+       [ -0.22757371,  -0.24058533,  -0.25424881,  -0.26860318,
+        -0.28369074,  -0.29955754,  -0.31625371,  -0.33383384,
+        -0.35235775,  -0.37189092,  -0.39250509,  -0.41427939,
+        -0.43730097,  -0.46166625,  -0.48748195,  -0.51486689,
+        -0.54395352,  -0.57488969,  -0.60784165,  -0.64299641,
+        -0.68056536,  -0.7207882 ,  -0.76393825,  -0.81032826,
+        -0.86031779,  -0.91432265,  -0.97282631,  -1.03639391,
+        -1.105691  ,  -1.18150586,  -1.26478111,  -1.35665211,
+        -1.45849894,  -1.57201594,  -1.69930869,  -1.84302405,
+        -2.00653588,  -2.19421277,  -2.41180743,  -2.66704414,
+        -2.97052605,  -3.33715543,  -3.78844805,  -4.35633345,
+        -5.0894233 ,  -6.06266095,  -7.38786702,  -9.20098598,
+       -11.52443239])
+
+def Blambda(lambda_val):
+    r"""Return the coefficient B for the MCT scaling equation.
+
+    Parameters
+    ----------
+    lambda_val : float
+        Value of the exponent parameter.
+
+    Returns
+    -------
+    B : float
+        Value of the coefficient B(lambda) or `np.nan` if out of range.
+
+    Notes
+    -----
+    The returned values are interpolations of a pre-computed table,
+    currently for lambda values [0.5,0.98].
+    If `lambda_val` is outside this precalculated range, `np.nan` is returned.
+    """
+    return np.interp(lambda_val, __Bll__, __BlB__,left=np.nan,right=np.nan)
+
 
 
 def filon_integrate(f,x,G0,G1):

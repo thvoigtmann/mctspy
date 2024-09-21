@@ -1,0 +1,100 @@
+---
+jupytext:
+  text_representation:
+    extension: .mystnb
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.16.4
+kernelspec:
+  display_name: Python 3 (ipykernel)
+  language: python
+  name: python3
+---
+
+# Beta-Scaling
+
+```{code-cell} ipython3
+import numpy as np
+import matplotlib.pyplot as plt
+```
+
+```{code-cell} ipython3
+from tqdm import tqdm
+```
+
+```{code-cell} ipython3
+import mctspy as mct
+```
+
+Here is an exemplary solution:
+
+```{code-cell} ipython3
+g = mct.beta_scaling_function (lam=0.74, sigma=-1.0, delta=0.0, store=True)
+```
+
+```{code-cell} ipython3
+correlators = mct.CorrelatorStack([g])
+```
+
+```{code-cell} ipython3
+pbar = tqdm(total=g.blocks+1)
+correlators.solve_all(callback=lambda d, bs2, bs, c: pbar.update(1))
+pbar.close()
+```
+
+```{code-cell} ipython3
+a, b = mct.util.exponents(0.74)
+```
+
+The short-time asymptote of $g(t)$ is $(t/t_0)^{-a}$, while the long-time asymptote for $\sigma=-1$ is $-B_\lambda t^{-b}$, where $B_\lambda$ is a constant that needs to be determined numerically.
+
+```{code-cell} ipython3
+plt.plot(g.t[1:], g.phi[1:,0])
+plt.plot(g.t[1:], np.power(g.t[1:],-a),linestyle='dotted')
+plt.plot(g.t[1:], -0.861*np.power(g.t[1:],b),linestyle='dotted')
+plt.xscale('log')
+plt.xlim(1e-5,1e4)
+plt.ylim(-20,20)
+plt.show()
+```
+
+```{code-cell} ipython3
+plt.plot(g.t[1:], np.abs(g.phi[1:,0]))
+plt.plot(g.t[1:], np.power(g.t[1:],-a),linestyle='dotted')
+plt.plot(g.t[1:], 0.861*np.power(g.t[1:],b),linestyle='dotted')
+plt.xscale('log')
+plt.yscale('log')
+plt.show()
+```
+
+In order to determine $B_\lambda$ we iterate over a set of $\lambda$ values and read off the long-time limit of $g(t)t^{-b}$. This recreates the table given in [Götze, J. Phys.: Condens. Matter 2, 8485 (1990)], up to some small differences in the third decimal.
+
+```{code-cell} ipython3
+ltab = np.linspace(0.5,0.98,49)
+Btab = []
+for l in tqdm(ltab):
+    g = mct.beta_scaling_function (lam=l, sigma=-1.0, delta=0.0, store=True)
+    mct.CorrelatorStack([g]).solve_all()
+    a, b = mct.util.exponents(l)
+    Btab.append(np.mean((g.phi[1:,0]*np.power(g.t[1:],-b))[-50:]))
+Btab = np.array(Btab)
+```
+
+```{code-cell} ipython3
+plt.plot(ltab,Btab)
+plt.xlabel(r'$\lambda$')
+plt.ylabel(r'$B_\lambda$')
+plt.show()
+```
+
+```{code-cell} ipython3
+ltab
+```
+
+```{code-cell} ipython3
+Btab
+```
+
+```{code-cell} ipython3
+
+```

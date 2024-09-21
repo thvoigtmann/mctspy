@@ -1,4 +1,4 @@
-from .solver import correlator, mean_squared_displacement, non_gaussian_parameter
+from .solver import correlator, mean_squared_displacement, non_gaussian_parameter, beta_scaling_function
 from .fsolver import nonergodicity_parameter, eigenvalue
 from .schematic import f12model,f12gammadot_model,sjoegren_model,bosse_krieger_model,f12gammadot_tensorial_model
 from .standard import simple_liquid_model, tagged_particle_model, tagged_particle_q0, tagged_particle_ngp
