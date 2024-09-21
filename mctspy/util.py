@@ -55,7 +55,7 @@ class CorrelatorStack(list):
                 break
 
 
-def regula_falsi(f,x0,x1,accuracy=1e-8,maxiter=10000):
+def regula_falsi(f,x0,x1,accuracy=1e-8,maxiter=10000,isclose=np.isclose):
     xa, xb, fa, fb = x0, x1, f(x0), f(x1)
     dx = xb-xa
     iterations = 0
@@ -82,7 +82,7 @@ def regula_falsi(f,x0,x1,accuracy=1e-8,maxiter=10000):
             # then there must be a root in (xguess,b)
             xa = xguess
             fa = fguess
-        if np.isclose(fguess,0.,rtol=accuracy,atol=accuracy):
+        if isclose(fguess,0.,rtol=accuracy,atol=accuracy):
             break
         dx = xb-xa
         iterations+=1

@@ -116,20 +116,33 @@ def np_gradient(f,k):
 
 # numba does not support np.isclose with complex arrays
 # we need to patch around that
+# note that we also include a test like np.isclose().all()
+# since we need that, and we can overload to make sure it
+# also works with scalars (needed in the regula_falsi when njit'ed)
 
-def np_isclose_impl(a, b, rtol, atol):
-    return np.isclose(a, b, rtol=rtol, atol=atol)
+def np_isclose_all_impl(a, b, rtol, atol):
+    return np.isclose(a, b, rtol=rtol, atol=atol).all()
 
-@nb.extending.overload(np_isclose_impl)
-def np_isclose_impl_overload(a, b, rtol, atol):
+@nb.extending.overload(np_isclose_all_impl)
+def np_isclose_all_impl_overload(a, b, rtol, atol):
+    if not isinstance(a, nb.types.Array):
+        if not a == nb.complex128:
+            def np_isclose_scalar (a, b, rtol, atol):
+                return np.isclose (a, b, rtol, atol)
+            return np_isclose_scalar
+        else:
+            def np_isclose_scalar (a, b, rtol, atol):
+                return np.isclose (a.real, b.real, rtol, atol) \
+                     & np.isclose (a.imag, b.imag, rtol, atol)
+            return np_isclose_scalar
     if a.dtype == nb.complex128:
         def np_isclose_complex(a, b, rtol, atol):
-            return np.isclose(a.real, b.real, rtol=rtol, atol=atol) \
-                 & np.isclose(a.imag, b.imag, rtol=rtol, atol=atol)
+            return (np.isclose(a.real, b.real, rtol=rtol, atol=atol) \
+                  & np.isclose(a.imag, b.imag, rtol=rtol, atol=atol)).all()
         return np_isclose_complex
     else:
-        return np_isclose_impl
+        return np_isclose_all_impl
 
 @nb.njit
-def np_isclose(a, b, rtol=1e-5, atol=1e-8):
-    return np_isclose_impl(a, b, rtol, atol)
+def np_isclose_all(a, b, rtol=1e-5, atol=1e-8):
+    return np_isclose_all_impl(a, b, rtol, atol)
