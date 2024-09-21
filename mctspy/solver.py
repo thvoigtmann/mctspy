@@ -187,14 +187,26 @@ class correlator (object):
             #self.base = base
         self.h = self.h0
         self.maxinit = maxinit
+        self.maxiter = maxiter
+        self.accuracy = accuracy
+
+        self.model = model
+        self.jit_kernel = model.get_kernel()
+
+        self.store = store
+        self.solved = -2
+
+        self.__alloc__ ()
+
+    def __alloc__ (self):
+        model = self.model
         self.mdimen = len(model)
         self.dim = model.matrix_dimension()
         self.phi_ = np.zeros((self.blocksize,self.mdimen*self.dim**2),dtype=model.dtype)
         self.m_ = np.zeros((self.blocksize,self.mdimen*self.dim**2),dtype=model.dtype)
         self.dPhi_ = np.zeros((self.halfblocksize+1,self.mdimen*self.dim**2),dtype=model.dtype)
         self.dM_ = np.zeros((self.halfblocksize+1,self.mdimen*self.dim**2),dtype=model.dtype)
-        self.store = store
-        if store:
+        if self.store:
             self.t = np.zeros(self.halfblocksize*(self.blocks+1))
             if model.scalar():
                 self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen*self.dim**2),dtype=model.dtype)
@@ -203,13 +215,7 @@ class correlator (object):
                 self.phi = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen,self.dim,self.dim),dtype=model.dtype)
                 self.m = np.zeros((self.halfblocksize*(self.blocks+1),self.mdimen,self.dim,self.dim),dtype=model.dtype)
 
-        self.maxiter = maxiter
-        self.accuracy = accuracy
 
-        self.model = model
-        self.jit_kernel = model.get_kernel()
-
-        self.solved = -2
 
     def initial_values (self, imax):
         """Initialize with short-time expansion.
