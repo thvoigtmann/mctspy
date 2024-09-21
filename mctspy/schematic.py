@@ -2,6 +2,7 @@ import numpy as np
 import scipy.linalg as la
 
 from numba import njit, carray, objmode
+from inspect import signature
 from .__util__ import nparray, model_base, void
 
 class generic (model_base):
@@ -13,15 +14,17 @@ class generic (model_base):
     Parameters
     ----------
     func : callable
-        The memory-kernel functional. Must be a njit-able function
-        that takes the correlator as input, and returns the memory-kernel
-        values.
+        The memory-kernel functional. Must be a njit-able function.
+        If its signature has one arugment, this is expected to be
+        a memory-kernel functional specified as the funciton of the
+        correlator phi. If it has two arguments, the solver will pass
+        the time as well. Use this to specify explicit time-dependent
+        memory kernels.
     M : int, default: 1
         The number of correlators expected by the functional.
  
     Notes
     -----
-
     Use this to implement more "exotic" models; the most commonly used
     schematic models such as the F12 model or the Bosse-Krieger model
     have their own implementations here.
@@ -34,15 +37,22 @@ class generic (model_base):
     >>> v1, v2 = 0, 3.95
     >>> model = mct.schematic.generic (lambda x : v1*x + v2*x*x)
 
+    >>> model = mct.schematic.generic (lambda x,t: -np.exp(-2*t))
     """
     def __init__ (self, func, M=1):
         model_base.__init__(self)
         self.func = njit(func)
+        self.sig = len(signature(func).parameters)
         self.M = M
     def __len__ (self):
         return self.M
     def make_kernel (self):
         F = self.func
+        if self.sig==2:
+            @njit
+            def ker(m, phi, i, t):
+                m[:] = F(phi,t)
+            return ker
         @njit
         def ker(m, phi, i, t):
             m[:] = F(phi)
