@@ -2,7 +2,8 @@ import numpy as np
 import scipy
 
 class CorrelatorStack(list):
-    def solve_all (self, callback=None, stop_on_zero=False):
+    def solve_all (self, callback=None, stop_on_zero=False,
+                                        stop_condition=None):
         """Solve all correlators in the list.
 
         This method calls the solver for each correlator in the list,
@@ -23,6 +24,11 @@ class CorrelatorStack(list):
         stop_on_zero : bool, default: False
             If set, the solver-loop will stop as soon as all correlators
             are zero in the last half-block that has been solved.
+        stop_condition : callable, optional
+            If set, this function will be called with the correlator
+            object as an argument, and shall return a boolean indicating
+            whether to stop or not. This test is performed in addition
+            to the stop_on_zero test.
 
         Notes
         -----
@@ -51,17 +57,23 @@ class CorrelatorStack(list):
                     and np.isclose(_phi_.phi_[halfblocksize],0).all() \
                     and np.isclose(_phi_.phi_[-1],0).all():
                     stop += 1
+                elif stop_condition is not None \
+                    and stop_condition(_phi_):
+                    stop += 1
             if stop == len(self):
                 break
 
 
-def regula_falsi(f,x0,x1,accuracy=1e-8,maxiter=10000,isclose=np.isclose):
-    xa, xb, fa, fb = x0, x1, f(x0), f(x1)
+def regula_falsi(f,x0,x1,accuracy=1e-8,maxiter=10000,isclose=np.isclose,fargs=()):
+    xa, xb = x0, x1
+    if x1 > x0:
+        xa, xb = x1, x0
+    fa, fb = f(xa,*fargs), f(xb,*fargs)
     dx = xb-xa
     iterations = 0
     while (not iterations or (dx > accuracy and iterations <= maxiter)):
         xguess = xa - dx/(fb-fa) * fa
-        fguess = f(xguess)
+        fguess = f(xguess,*fargs)
         if xguess < xa:
             xb = xa
             xa = xguess
