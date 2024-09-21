@@ -146,6 +146,36 @@ even in the ideal-glass state of MCT. See [Goetze1987]_ for details.
     G\ |ouml|\ tze, although some deviations appear in the third digit.
 
 
+The :py:class:`mctspy.beta_scaling_function` also implements the
+equations of stochastic :math:`\beta`-relaxation (SBR) theory
+[Rizzo2014]_:
+
+.. math::
+
+    \sigma(x) + \alpha \frac{d^2}{dx^2} g(x,t)
+    + \lambda (g(x,t))^2 = \frac{d}{dt}(g(x)\ast g(x))(t)
+
+where :math:`\sigma(x)` is a stochastic field of distance parameters,
+accounting for large-wavelength fluctuations in extension of standard MCT.
+The solver implements 1d, 2d, or 3d lattice versions of the theory.
+The correlator will then be an array of shape (T,M), (T,M,M), or (T,M,M,M) if
+there are T time points. The `sigma` parameter should then be
+a corresponding array of shape (M), (M,M), or (M,M,M).
+
+Note that for :math:`\alpha=0`, or `sigma` a scalar,
+the solver essentially solves a set of
+unrelated scaling functions, and the interesting quantity according to
+SBR then is the spatial average over these correlators [Rizzo2015]_.
+
+
+.. [Rizzo2014] T. Rizzo, EPL 106, 56003 (2014),
+   `DOI:10.1209/0295-5075/106/56003 <https://doi.org/10.1209/0295-5075/106/56003>`_
+
+.. [Rizzo2015] T. Rizzo and Th. Voigtmann, EPL 111, 56008 (2015),
+   `DOI:10.1209/0295-5075/111/56008 <https://doi.org/10.1209/0295-5075/111/56008>`_
+
+
+
 High-level interface
 --------------------
 

@@ -1,0 +1,137 @@
+---
+jupytext:
+  text_representation:
+    extension: .mystnb
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.16.4
+kernelspec:
+  display_name: Python 3 (ipykernel)
+  language: python
+  name: python3
+---
+
+# Stochastic Beta-Relaxation Theory
+
+```{code-cell} ipython3
+import numpy as np
+import matplotlib.pyplot as plt
+```
+
+```{code-cell} ipython3
+from tqdm import tqdm
+```
+
+```{code-cell} ipython3
+import mctspy as mct
+```
+
+```{code-cell} ipython3
+rng = np.random.default_rng()
+```
+
+Here is an exemplary solution:
+
+```{code-cell} ipython3
+M, dim = 30, 2
+Dsigma = 1.
+```
+
+```{code-cell} ipython3
+sigma = -1.0
+s = rng.normal(loc=sigma, scale=Dsigma,size=(M,)*dim)
+s += sigma - np.mean(s)
+print(np.min(s))
+```
+
+```{code-cell} ipython3
+g = mct.beta_scaling_function (lam=0.74, sigma=s, M=M, dim=dim, alpha=0.1, blocks=100, store=True)
+```
+
+```{code-cell} ipython3
+correlators = mct.CorrelatorStack([g])
+```
+
+```{code-cell} ipython3
+pbar = tqdm(total=g.blocks+1)
+correlators.solve_all(callback=lambda d, bs2, bs, c: pbar.update(1),stop_condition=lambda c:(c.phi_[-1]<-1).all())
+pbar.close()
+```
+
+```{code-cell} ipython3
+a, b = mct.util.exponents(g.lambda_)
+```
+
+```{code-cell} ipython3
+valid = g.t>0
+```
+
+```{code-cell} ipython3
+plt.plot(g.t[valid],g.phi[valid].reshape(g.t[valid].shape[0],-1))
+plt.xscale('log')
+plt.xlim(1e-4,g.t[valid][-1])
+plt.ylim(-20,20)
+plt.show()
+```
+
+```{code-cell} ipython3
+Blam = np.mean(g.phi[valid][-50:,:,:]*np.power(g.t[valid][-50:],-b)[:,None,None],axis=0)
+```
+
+```{code-cell} ipython3
+np.mean(Blam),np.std(Blam)
+```
+
+```{code-cell} ipython3
+mct.util.Blambda(g.lambda_)
+```
+
+```{code-cell} ipython3
+g = mct.beta_scaling_function (lam=0.74, sigma=-s, M=M, dim=dim, alpha=0.1, blocks=100, store=True)
+```
+
+```{code-cell} ipython3
+correlators = mct.CorrelatorStack([g])
+```
+
+```{code-cell} ipython3
+pbar = tqdm(total=g.blocks+1)
+correlators.solve_all(callback=lambda d, bs2, bs, c: pbar.update(1),stop_condition=lambda c:(c.phi_[-1]<-1).all())
+pbar.close()
+```
+
+```{code-cell} ipython3
+valid = g.t>0
+```
+
+```{code-cell} ipython3
+plt.plot(g.t[valid],g.phi[valid].reshape(g.t[valid].shape[0],-1))
+plt.xscale('log')
+plt.xlim(1e-4,g.t[valid][-1])
+plt.ylim(-20,20)
+plt.show()
+```
+
+```{code-cell} ipython3
+plt.plot(g.t[valid],np.abs(g.phi[valid].reshape(g.t[valid].shape[0],-1)))
+plt.xscale('log')
+plt.yscale('log')
+plt.xlim(1e-4,g.t[valid][-1])
+plt.show()
+```
+
+```{code-cell} ipython3
+Blamglass = np.mean(g.phi[valid][-50:,:,:]*np.power(g.t[valid][-50:],-b)[:,None,None],axis=0)
+```
+
+```{code-cell} ipython3
+x_, y_  = np.meshgrid(np.arange(M),np.arange(M))
+fig, ax = plt.subplots(ncols=2,figsize=(16,12),subplot_kw=dict(projection='3d'))
+ax[0].plot_surface(x_, y_, -Blam)
+ax[1].plot_surface(x_, y_, -Blamglass)
+plt.show()
+```
+
+```{code-cell} ipython3
+
+```
