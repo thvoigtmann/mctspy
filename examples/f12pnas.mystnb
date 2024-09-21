@@ -1,0 +1,100 @@
+---
+jupytext:
+  text_representation:
+    extension: .mystnb
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.16.4
+kernelspec:
+  display_name: Python 3 (ipykernel)
+  language: python
+  name: python3
+---
+
+# F12 Model with Shear
+
+```{code-cell} ipython3
+import numpy as np
+import scipy
+import matplotlib.pyplot as plt
+import scipy.linalg as la
+```
+
+```{code-cell} ipython3
+import mctspy as mct
+```
+
+```{code-cell} ipython3
+def finger (kappa0, gammadot, t):
+    gt = gammadot*t
+    F = la.expm(kappa0*gt)
+    return np.dot(F,F.T)
+def dB (kappa0, gammadot, t):
+    B = finger(kappa0, gammadot, t)
+    return (kappa0 @ B + B @ kappa0.T) * gammadot
+def dBinv (kappa0, gammadot, t):
+    Binv = la.inv(finger(kappa0, gammadot, t))
+    return (kappa0.T @ Binv + Binv @ kappa0) * (-gammadot)
+```
+
+```{code-cell} ipython3
+kappa0 = np.array([[0,1,0],[0,0,0],[0,0,0]])
+```
+
+```{code-cell} ipython3
+gammadot = 10**np.linspace(0,-9,10)
+sigma = np.zeros((gammadot.shape[0], 3, 3))
+```
+
+```{code-cell} ipython3
+v1c, v2c = 2*(np.sqrt(2.)-1), 2.0
+v1, v2 = v1c - 1e-3/(np.sqrt(2)-1), v2c
+for i,gdot in enumerate(gammadot):
+    model = mct.f12gammadot_tensorial_model (v1, v2, gammadot=gdot, gammac=0.1,
+                                             use_hhat=True, nu=1.0, kappa=kappa0)
+    phi = mct.correlator (model = model, store = True)
+    correlators = mct.CorrelatorStack([phi])
+    correlators.solve_all(stop_on_zero=True)
+    dB_ = np.array([dB(kappa0,gdot,t) for t in phi.t]).reshape(-1,3,3)
+    sigma[i] = scipy.integrate.trapezoid(dB_ * phi.phi[:,0,None,None]**2, x=phi.t, axis=0)
+```
+
+```{code-cell} ipython3
+plt.plot(gammadot, 100*sigma[:,0,1]/gammadot)
+plt.plot(gammadot, 100*sigma[:,0,0]/gammadot**2)
+plt.xscale('log')
+plt.yscale('log')
+plt.show()
+```
+
+(This reproduces a curve from Fig. 1 of the PNAS.)
+
+```{code-cell} ipython3
+kappa0ext = np.array([[1,0,0],[0,-1,0],[0,0,0]])
+sigmaext = np.zeros((gammadot.shape[0],3,3))
+```
+
+```{code-cell} ipython3
+v1c, v2c = 2*(np.sqrt(2.)-1), 2.0
+v1, v2 = v1c - 1e-3/(np.sqrt(2)-1), v2c
+for i,gdot in enumerate(gammadot):
+    model = mct.f12gammadot_tensorial_model (v1, v2, gammadot=gdot, gammac=0.1,
+                                             use_hhat=True, nu=1.0, kappa=kappa0ext)
+    phi = mct.correlator (model = model, store = True)
+    correlators = mct.CorrelatorStack([phi])
+    correlators.solve_all(stop_on_zero=True)
+    dB_ = np.array([dB(kappa0ext,gdot,t) for t in phi.t]).reshape(-1,3,3)
+    sigmaext[i] = scipy.integrate.trapezoid(dB_ * phi.phi[:,0,None,None]**2, x=phi.t, axis=0)
+```
+
+```{code-cell} ipython3
+plt.plot(gammadot, (sigmaext[:,0,0]-sigmaext[:,1,1])/sigma[:,0,1])
+plt.xscale('log')
+plt.xlim(1e-9,1e-2)
+plt.ylim(0,4)
+plt.show()
+```
+
+```{code-cell} ipython3
+
+```
