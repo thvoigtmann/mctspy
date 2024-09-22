@@ -5,8 +5,7 @@ from numba import njit
 import h5py
 
 from .__util__ import model_base, loaded_model, np_isclose_all
-from .util import exponents
-
+from .util import exponents, CorrelatorBase
 
 @njit
 def _decimize (phi, m, dPhi, dM, blocksize):
@@ -105,7 +104,7 @@ def _solve_block_mat (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, M, kernel, maxi
                     dPhi[i] = 0.5 * (phi[i-1] + phi[i])
                     dM[i] = 0.5 * (m[i-1] + m[i])
 
-class correlator (object):
+class correlator (CorrelatorBase):
     """Class for calculating MCT correlators in the time domain.
 
     This sets up the standard solver developed for MCT-type equations,

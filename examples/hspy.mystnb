@@ -1,0 +1,75 @@
+---
+jupytext:
+  text_representation:
+    extension: .md
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.16.4
+kernelspec:
+  display_name: Python 3 (ipykernel)
+  language: python
+  name: python3
+---
+
+```{code-cell} ipython3
+import numpy as np
+import matplotlib.pyplot as plt
+```
+
+```{code-cell} ipython3
+from tqdm import tqdm
+```
+
+```{code-cell} ipython3
+import mctspy as mct
+```
+
+```{code-cell} ipython3
+Sq = mct.structurefactors.hssPY(0.51593)
+qgrid = np.linspace(0.2,39.8,100)
+sq,cq = Sq.Sq(qgrid)
+plt.plot(qgrid,sq)
+plt.show()
+```
+
+```{code-cell} ipython3
+model = mct.simple_liquid_model(Sq,qgrid)
+```
+
+```{code-cell} ipython3
+nep = mct.nonergodicity_parameter (model = model, maxiter=1500)
+nep.solve()
+```
+
+```{code-cell} ipython3
+plt.plot(nep.model.q, nep.f)
+plt.show()
+```
+
+```{code-cell} ipython3
+Sq = mct.structurefactors.hssPY(0.515)
+model = mct.simple_liquid_model(Sq,qgrid)
+phi = mct.correlator (model = model, store=True)
+```
+
+```{code-cell} ipython3
+pbar = tqdm(total=phi.blocks+1)
+phi.solve_all(callback=lambda d,bs2,bs,c: pbar.update(1))
+pbar.close()
+```
+
+```{code-cell} ipython3
+qval = 3.4
+qi = np.nonzero(np.isclose(qgrid,qval))[0][0]
+```
+
+```{code-cell} ipython3
+plt.plot(phi.t, phi.phi[:,qi], label=r'$q = {}'.format(qgrid[qi]))
+plt.xscale('log')
+plt.legend()
+plt.show()
+```
+
+```{code-cell} ipython3
+
+```

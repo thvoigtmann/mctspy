@@ -63,6 +63,16 @@ class CorrelatorStack(list):
             if stop == len(self):
                 break
 
+# if we inherit the correlators from CorrelatorBase, they also
+# act like one-element lists of themselves, with a solve_all method
+class CorrelatorBase (CorrelatorStack):
+    def __getitem__ (self, i):
+        return self
+    def __len__ (self):
+        return 1
+    def __iter__ (self):
+        yield self
+
 
 def regula_falsi(f,x0,x1,accuracy=1e-8,maxiter=10000,isclose=np.isclose,fargs=()):
     xa, xb = x0, x1
