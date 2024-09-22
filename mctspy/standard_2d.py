@@ -93,7 +93,7 @@ class simple_liquid_model_2d (model_base):
         """
         q = self.q
         M = self.M
-        pre = self.rho*self.sq/(8*np.pi**2*q**2)
+        pre = self.rho*self.sq/(8*np.pi**2)
         Aqk = void(self.__A__)
         c = self.cq
         S = self.sq
@@ -114,9 +114,9 @@ class simple_liquid_model_2d (model_base):
                     minval = -1.0
                     if pmax > q[-1]:
                         minval = x[-1]
-                    A[qi,ki] = 2*q[qi]**4 * g0(phi[p]*S[p]*c[p]**2,x,1,minval) \
-                          + 4*q[qi]**3*q[ki] * g1(phi[p]*S[p]*c[p]*(c[ki]-c[p]),x,1,minval) \
-                          + 2*q[qi]**2*q[ki]**2 * g2(phi[p]*S[p]*(c[ki]-c[p])**2,x,1,minval)
+                    A[qi,ki] = 2*q[qi]**2 * g0(phi[p]*S[p]*c[p]**2,x,1,minval) \
+                          + 4*q[qi]*q[ki] * g1(phi[p]*S[p]*c[p]*(c[ki]-c[p]),x,1,minval) \
+                          + 2*q[ki]**2 * g2(phi[p]*S[p]*(c[ki]-c[p])**2,x,1,minval)
                     #assert(not np.isnan(A[qi,ki]))
             m[:] = -pre * np.sum((q[:-1]*phi[:-1]*S[:-1]*A[:,:-1] + q[1:]*phi[1:]*S[1:]*A[:,1:])/2 * np.diff(q), axis=-1)
         return ker
