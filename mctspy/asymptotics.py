@@ -91,7 +91,7 @@ def _solve_block_g (istart, iend, h, Bq, Wq, g, dG, lambda_, sigma, delta, maxit
 
 # SBR solver implementation
 @njit
-def _solve_block_g_iter (istart, iend, h, Bq, Wq, g, dG, lambda_, sigma, delta, maxiter, accuracy, calc_moments, M, alpha, dx, *kernel_args):
+def _solve_block_g_iter (istart, iend, h, Bq, Wq, g, dG, lambda_, sigma, delta, maxiter, accuracy, calc_moments, M, dim, alpha, dx, *kernel_args):
 
     for i in range(istart,iend):
 
@@ -105,7 +105,7 @@ def _solve_block_g_iter (istart, iend, h, Bq, Wq, g, dG, lambda_, sigma, delta, 
         C += g[i-ibar] * g[ibar]
         C += delta * h*i - sigma
 
-        A = dG[1] + alpha/dx**2
+        A = dG[1] + dim * alpha/dx**2
 
         iterations = 0
         converged = False
@@ -209,7 +209,7 @@ class beta_scaling_function (correlator):
         if self.M == 1:
             _solve_block_g (istart, iend, self.h, self.model.Bq()/self.h, self.model.Wq(), self.phi_, self.dPhi_, self.lambda_, self.sigma, self.delta, self.maxiter, self.accuracy, (istart<self.blocksize//2), *self.model.kernel_extra_args())
         else:
-            _solve_block_g_iter (istart, iend, self.h, self.model.Bq()/self.h, self.model.Wq(), self.phi_, self.dPhi_, self.lambda_, self.sigma, self.delta, self.maxiter, self.accuracy, (istart<self.blocksize//2), self.M, self.alpha, self.dx, *self.model.kernel_extra_args())
+            _solve_block_g_iter (istart, iend, self.h, self.model.Bq()/self.h, self.model.Wq(), self.phi_, self.dPhi_, self.lambda_, self.sigma, self.delta, self.maxiter, self.accuracy, (istart<self.blocksize//2), self.M, self.dim, self.alpha, self.dx, *self.model.kernel_extra_args())
 
     def type (self):
         return 'g'

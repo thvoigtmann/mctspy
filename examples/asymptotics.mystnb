@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 
 ```{code-cell} ipython3
 from tqdm import tqdm
+import pandas as pd
 ```
 
 ```{code-cell} ipython3
@@ -88,11 +89,30 @@ plt.show()
 ```
 
 ```{code-cell} ipython3
-ltab
+df = pd.DataFrame(np.array((ltab,Btab)).T,columns=[r'$\lambda$',r'$B_\lambda$'])
 ```
 
 ```{code-cell} ipython3
-Btab
+with pd.option_context('display.max_rows',10,'display.max_columns',10):
+    print (df)
+```
+
+```{code-cell} ipython3
+import tabulate
+```
+
+```{code-cell} ipython3
+np.pad(np.array((ltab,Btab)).T,((0,5),(0,0)),mode='constant',constant_values=np.nan).shape
+```
+
+```{code-cell} ipython3
+54/3
+```
+
+```{code-cell} ipython3
+padded=np.pad(np.array((ltab,Btab)).T,((0,5),(0,0)),mode='constant',constant_values=np.nan)
+tabulated=np.transpose(padded.reshape(-1,9,2),axes=(1,0,2)).reshape(-1,12)
+tabulate.tabulate(tabulated, tablefmt='html', floatfmt=".3f", headers=[r'$\lambda$',r'$B_\lambda$']*6)
 ```
 
 ```{code-cell} ipython3

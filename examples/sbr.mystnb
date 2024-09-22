@@ -30,12 +30,14 @@ import mctspy as mct
 rng = np.random.default_rng()
 ```
 
-Here is an exemplary solution:
+We test the solution on a two-dimensional lattice with size $M\times M$:
 
 ```{code-cell} ipython3
 M, dim = 30, 2
 Dsigma = 1.
 ```
+
+Generate a Gaussian-distributed $\sigma(x)$ field with the given mean.
 
 ```{code-cell} ipython3
 sigma = -1.0
@@ -46,11 +48,14 @@ print(np.min(s))
 
 ```{code-cell} ipython3
 g = mct.beta_scaling_function (lam=0.74, sigma=s, M=M, dim=dim, alpha=0.1, blocks=100, store=True)
+g0 = mct.beta_scaling_function (lam=0.74, sigma=sigma, M=1, blocks=100, store=True)
 ```
 
 ```{code-cell} ipython3
-correlators = mct.CorrelatorStack([g])
+correlators = mct.CorrelatorStack([g,g0])
 ```
+
+Solve the SBR equations. Note that we employ a stopping condition: we stop the solution as soon as all beta-correlators have reached the value of -1.
 
 ```{code-cell} ipython3
 pbar = tqdm(total=g.blocks+1)
@@ -64,56 +69,80 @@ a, b = mct.util.exponents(g.lambda_)
 
 ```{code-cell} ipython3
 valid = g.t>0
+valid0 = g0.t>0
 ```
+
+As expected, a wide distribution around the mean emerges. The mean over the SBR correlators deviates a little from the standard $\beta$-scaling correlator.
 
 ```{code-cell} ipython3
 plt.plot(g.t[valid],g.phi[valid].reshape(g.t[valid].shape[0],-1))
+plt.plot(g.t[valid],np.mean(g.phi[valid].reshape(g.t[valid].shape[0],-1), axis=-1), color='black', linewidth=5,label='SBR average')
+plt.plot(g0.t[valid0],g0.phi[valid0,0], color='black', linewidth=3, linestyle='dashed',label='standard beta theory')
 plt.xscale('log')
 plt.xlim(1e-4,g.t[valid][-1])
 plt.ylim(-20,20)
+plt.xlabel(r'$t$')
+plt.ylabel(r'$g_x(t)')
+plt.legend()
 plt.show()
 ```
+
+We calculate for further discussion below the von-Schweidler amplitudes.
 
 ```{code-cell} ipython3
 Blam = np.mean(g.phi[valid][-50:,:,:]*np.power(g.t[valid][-50:],-b)[:,None,None],axis=0)
 ```
 
 ```{code-cell} ipython3
-np.mean(Blam),np.std(Blam)
+np.mean(Blam),np.std(Blam),np.std(Blam)/np.mean(Blam)
 ```
 
 ```{code-cell} ipython3
 mct.util.Blambda(g.lambda_)
 ```
 
+We now repeat the calculation in the glass, with the same $\sigma$-distribution (just with flipped sign).
+
+(The correlator values are overwritten to save a bit of memory.)
+
 ```{code-cell} ipython3
 g = mct.beta_scaling_function (lam=0.74, sigma=-s, M=M, dim=dim, alpha=0.1, blocks=100, store=True)
+g0 = mct.beta_scaling_function (lam=0.74, sigma=-sigma, M=1, blocks=100, store=True)
 ```
 
 ```{code-cell} ipython3
-correlators = mct.CorrelatorStack([g])
+correlators = mct.CorrelatorStack([g,g0])
 ```
 
 ```{code-cell} ipython3
 pbar = tqdm(total=g.blocks+1)
-correlators.solve_all(callback=lambda d, bs2, bs, c: pbar.update(1),stop_condition=lambda c:(c.phi_[-1]<-1).all())
+correlators.solve_all(callback=lambda d, bs2, bs, c: pbar.update(1),stop_condition=lambda c:c==g0 or (c.phi_[-1]<-1).all())
 pbar.close()
 ```
 
 ```{code-cell} ipython3
 valid = g.t>0
+valid0 = g0.t>0
 ```
 
 ```{code-cell} ipython3
 plt.plot(g.t[valid],g.phi[valid].reshape(g.t[valid].shape[0],-1))
+plt.plot(g.t[valid],np.mean(g.phi[valid].reshape(g.t[valid].shape[0],-1), axis=-1), color='black', linewidth=5,label='SBR average')
+plt.plot(g0.t[valid0],g0.phi[valid0,0], color='black', linewidth=3, linestyle='dashed',label='standard beta theory')
 plt.xscale('log')
 plt.xlim(1e-4,g.t[valid][-1])
 plt.ylim(-20,20)
+plt.xlabel(r'$t$')
+plt.ylabel(r'$g_x(t)')
+plt.legend()
 plt.show()
 ```
 
+A strong point of SBR is that also in the glass, we get non-exponential relaxation, because all the correlators follow the von Schweidler law. This is best seen in a log-log representation:
+
 ```{code-cell} ipython3
 plt.plot(g.t[valid],np.abs(g.phi[valid].reshape(g.t[valid].shape[0],-1)))
+plt.plot(g.t[valid],np.power(g.t[valid],b),linestyle='dashed',color='black')
 plt.xscale('log')
 plt.yscale('log')
 plt.xlim(1e-4,g.t[valid][-1])
@@ -123,6 +152,12 @@ plt.show()
 ```{code-cell} ipython3
 Blamglass = np.mean(g.phi[valid][-50:,:,:]*np.power(g.t[valid][-50:],-b)[:,None,None],axis=0)
 ```
+
+```{code-cell} ipython3
+np.mean(Blamglass),np.std(Blamglass),np.std(Blamglass)/np.mean(Blamglass)
+```
+
+In the following, we plot the von-Schweidler amplitude field (as a function of grid position in the 2d lattice) for the liquid (left) and for the glass (right). The glass is obviously different because the distribution is much more heterogeneous. As the values printed above show, the stddev relative to the mean is much larger than in the liquid.
 
 ```{code-cell} ipython3
 x_, y_  = np.meshgrid(np.arange(M),np.arange(M))
