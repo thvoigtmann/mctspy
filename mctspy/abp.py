@@ -8,6 +8,18 @@ from .standard_2d import g0, g1, g2
 def _dq (q):
     return np.diff(q, append=2*q[-1]-q[-2])
 
+@njit
+def _calc_phase(phase,L,q,k,p,x,y):
+    for l1 in range(-L,L+1):
+        for l2 in range(-L,L+1):
+            for l3 in range(-L,L+1):
+                for l4 in range(-L,L+1):
+                    mu, nu = l3-l1, l4-l2
+                    smu, snu = np.sign(mu), np.sign(nu)
+                    a = np.arange(abs(mu)+1)[:,None]
+                    b = np.arange(abs(nu)+1)[None,:]
+                    phase[:,L+l1,L+l2,L+l3,L+l4] = np.sum(np.sum(x[:,None,None]**(abs(mu)-a) * y[:,None,None]**a * (smu*1j)**a * (-snu*1j)**b * (k/p)[:,None,None]**abs(nu) * (q/k-x)[:,None,None]**(abs(nu)-b) * y[:,None,None]**b, axis=-1), axis=-1)
+
 class abp_model_2d (model_base):
     def __init__ (self, Sq, q, L=1, D0=1.0, Dr=1.0, v0=0.0):
         model_base.__init__(self)
@@ -94,10 +106,11 @@ class abp_model_2d (model_base):
                     self.wTinv[:,L+l,L+ld] -= u0*wTinv0[:,L+l,L] * \
                         (wTinv0[:,L+1,L+ld]+wTinv0[:,L-1,L+ld])/ \
                         (self.q**2 + u0*(wTinv0[:,L+1,L]+wTinv0[:,L-1,L]))
-        self.__A__ = np.zeros((self.M,self.M),dtype=self.dtype)
-        self.__B__ = np.zeros((self.M,self.M,self.S),dtype=self.dtype)
-        self.__C__ = np.zeros((self.M,self.M,self.S),dtype=self.dtype)
+        self.__A__ = np.zeros((self.M,self.M,self.S,self.S),dtype=self.dtype)
+        self.__B__ = np.zeros((self.M,self.M,self.S,self.S),dtype=self.dtype)
+        self.__C__ = np.zeros((self.M,self.M,self.S,self.S),dtype=self.dtype)
         self.__D__ = np.zeros((self.M,self.M,self.S,self.S),dtype=self.dtype)
+        #self.__phase__ = np.zeros((self.M,self.S,self.S,self.S,self.S),dtype=self.dtype)
     def make_kernel (self):
         M, S, L = self.M, self.S, self.L
         q = self.q
@@ -106,6 +119,7 @@ class abp_model_2d (model_base):
         Bqk = void(self.__B__)
         Cqk = void(self.__C__)
         Dqk = void(self.__D__)
+        #Pqk = void(self.__phase__)
         omega_T_inv = void(self.wTinv)
         c = self.cq
         @njit
@@ -115,6 +129,7 @@ class abp_model_2d (model_base):
             B = nparray(Bqk)
             C = nparray(Cqk)
             D = nparray(Dqk)
+            #phase = nparray(Pqk)
             wTinv = nparray(omega_T_inv)
             for qi in range(M):
                 for ki in range(M):
@@ -130,21 +145,27 @@ class abp_model_2d (model_base):
                     minval = -1.0
                     if pmax > q[-1]:
                         minval = x[-1]
-                    A[qi,ki] = 2*q[qi]**4 * g0(phi[p,L,L]*c[p]**2,x,1,minval) \
-                      - 4*q[qi]**3*q[ki] * g1(phi[p,L,L]*c[p]**2,x,1,minval) \
-                      + 2*q[qi]**2*q[ki]**2 * g2(phi[p,L,L]*c[p]**2,x,1,minval)
-                    g1phi = g1(phi[p,:,:].T*c[ki]*c[p],x,1,minval).T
-                    g2phi = g2(phi[p,:,:].T*c[ki]*c[p],x,1,minval).T
-                    B[qi,ki,:] = 2*q[qi]**3*q[ki] * g1phi[L,:] \
-                      - 2*q[qi]**2*q[ki]**2 * g2phi[L,:]
-                    C[qi,ki,:] = 2*q[qi]**3*q[ki] * g1phi[:,L] \
-                      - 2*q[qi]**2*q[ki]**2 * g2phi[:,L]
-                    D[qi,ki,:,:] = 2*q[qi]**2*q[ki]**2 * g2((phi[p,:,:]*c[ki]**2).T,x,1,minval).T
+                    y = np.sqrt(1-x*x)
+                    phase = np.zeros((x.shape[0],S,S,S,S),dtype=complex128)
+                    _calc_phase(phase,L,q[qi],q[ki],q[p],x,y)
+                    A[qi,ki,:,:] = 2*q[qi]**4 * g0((phi[p,L,L,None,None]*phase[:,:,L,:,L]).T*c[p]**2,x,1,minval).T \
+                      - 4*q[qi]**3*q[ki] * g1((phi[p,L,L,None,None]*phase[:,:,L,:,L]).T*c[p]**2,x,1,minval).T \
+                      + 2*q[qi]**2*q[ki]**2 * g2((phi[p,L,L,None,None]*phase[:,:,L,:,L]).T*c[p]**2,x,1,minval).T
+                    g1phi = g1((phi[p,L,None,:]*phase[:,:,L,L,:]).T*c[ki]*c[p],x,1,minval).T
+                    g2phi = g2((phi[p,L,None,:]*phase[:,:,L,L,:]).T*c[ki]*c[p],x,1,minval).T
+                    B[qi,ki,:,:] = 2*q[qi]**3*q[ki] * g1phi[:,:] \
+                      - 2*q[qi]**2*q[ki]**2 * g2phi[:,:]
+                    phip = phi[p]
+                    g1phi = g1(((phip[:,L,None]*phase[:,L,L,:,L,None])*phase[:,L,None,:,L,L]).T*c[ki]*c[p],x,1,minval).T
+                    g2phi = g2(((phip[:,L,None]*phase[:,L,L,:,L,None])*phase[:,L,None,:,L,L]).T*c[ki]*c[p],x,1,minval).T
+                    C[qi,ki,:,:] = 2*q[qi]**3*q[ki] * g1phi[:,:] \
+                      - 2*q[qi]**2*q[ki]**2 * g2phi[:,:]
+                    D[qi,ki,:,:] = 2*q[qi]**2*q[ki]**2 * g2((phi[p,:,:]*phase[:,L,L,:,:]*c[ki]**2).T,x,1,minval).T
             mq = np.zeros((M,S,S),dtype=complex128)
             mq = -pre[:,None,None] * ( \
-                np.sum((q[:-1,None,None]*phi[:-1,:,:]*A[:,:-1,None,None] + q[1:,None,None]*phi[1:,:,:]*A[:,1:,None,None])/2 * np.diff(q)[:,None,None], axis=1) \
-                + np.sum((q[:-1,None,None]*phi[:-1,:,L,None]*B[:,:-1,None,:] + q[1:,None,None]*phi[1:,:,L,None]*B[:,1:,None,:])/2 * np.diff(q)[:,None,None], axis=1) \
-                + np.sum((q[:-1,None,None]*phi[:-1,L,None,:]*C[:,:-1,:,None] + q[1:,None,None]*phi[1:,L,None,:]*C[:,1:,:,None])/2 * np.diff(q)[:,None,None], axis=1) \
+                np.sum((q[:-1,None,None]*phi[:-1,:,:]*A[:,:-1,:,:] + q[1:,None,None]*phi[1:,:,:]*A[:,1:,:,:])/2 * np.diff(q)[:,None,None], axis=1) \
+                + np.sum((q[:-1,None,None]*phi[:-1,:,L,None]*B[:,:-1,L,None,:] + q[1:,None,None]*phi[1:,:,L,None]*B[:,1:,L,None,:])/2 * np.diff(q)[:,None,None], axis=1) \
+                + np.sum((q[:-1,None,None]*phi[:-1,L,None,:]*C[:,:-1,:,L,None] + q[1:,None,None]*phi[1:,L,None,:]*C[:,1:,:,None,L])/2 * np.diff(q)[:,None,None], axis=1) \
                 + np.sum((q[:-1,None,None]*phi[:-1,L,L,None,None]*D[:,:-1,:,:] + q[1:,None,None]*phi[1:,L,L,None,None]*D[:,1:,:,:])/2 * np.diff(q)[:,None,None], axis=1))
             for qi in range(M):
                 m[qi,:,:] = np.dot(wTinv[qi],np.dot(mq[qi],wTinv[qi]))
