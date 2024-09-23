@@ -1,0 +1,95 @@
+---
+jupytext:
+  text_representation:
+    extension: .md
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.16.4
+kernelspec:
+  display_name: Python 3 (ipykernel)
+  language: python
+  name: python3
+---
+
+```{code-cell} ipython3
+import numpy as np
+import matplotlib.pyplot as plt
+```
+
+```{code-cell} ipython3
+from tqdm import tqdm
+```
+
+```{code-cell} ipython3
+import mctspy as mct
+```
+
+```{code-cell} ipython3
+Sq1 = mct.structurefactors.squarewell.swsMSA(0.5,delta=0.05,Gamma=2)
+Sq2 = mct.structurefactors.squarewell.swsMSA(0.55,delta=0.05,Gamma=2)
+Sq3 = mct.structurefactors.squarewell.swsMSA(0.5,delta=0.05,Gamma=1/0.15)
+Sq4 = mct.structurefactors.squarewell.swsMSA(0.4,delta=0.05,Gamma=1/0.15)
+Sq0 = mct.structurefactors.hssPY(0.5)
+```
+
+```{code-cell} ipython3
+q = np.linspace(0.2,159.8,2000)
+sq0, cq0 = Sq0.Sq(q)
+```
+
+Figure 2a in the Dawson et al paper:
+
+```{code-cell} ipython3
+for Sq in [Sq1,Sq2,Sq3,Sq4]:
+    sq, cq = Sq.Sq(q)
+    plt.plot(q, sq)
+plt.xlim(4,12)
+plt.show()
+```
+
+Figure 3:
+
+```{code-cell} ipython3
+for Sq in [Sq1,Sq2,Sq3,Sq4]:
+    sq, cq = Sq.Sq(q)
+    #plt.plot(q, sq)
+    plt.plot(q, cq)
+plt.xlim(7,40)
+plt.ylim(-0.8,0.8)
+#plt.plot(q, sq0)
+#plt.plot(q, cq)
+plt.show()
+```
+
+```{code-cell} ipython3
+#q = np.linspace(0.2,159.8,400)
+#q = np.linspace(0.2,39.8,100)
+q = np.linspace(0.2,79.8,200)
+correlators = mct.CorrelatorStack()
+for pf in [0.5,0.53,0.5357]:
+    Sq = mct.structurefactors.squarewell.swsMSA(pf,delta=0.03,Gamma=1/0.1875)
+    model = mct.simple_liquid_model(Sq, q)
+    correlators.append(mct.correlator (model=model, store=True))
+```
+
+```{code-cell} ipython3
+pbar = tqdm(total=phi.blocks+1)
+correlators.solve_all(callback=lambda d,bs2,bs,c: pbar.update(1))
+pbar.close()
+```
+
+This should reproduce curves from Figure 11, but the scales are somewhat off, and I don't yet know why. In the paper, the wave-number grid is not exactly specified.
+
+```{code-cell} ipython3
+qval = 4.2
+qi = np.nonzero(np.isclose(q,qval))[0][0]
+for phi in correlators:
+    plt.plot(qval**2/phi.model.sq[qi]*phi.t,phi.phi[:,qi])
+plt.xscale('log')
+plt.xlim(1e-2,1e13)
+plt.show()
+```
+
+```{code-cell} ipython3
+
+```

@@ -1,5 +1,6 @@
 Static Structure Factors
 ========================
+.. include:: <isolat1.txt>
 
 The common MCT approximations involve coupling coefficients that are
 set by the equilibrium static structure of the fluid. Most prominently,
@@ -38,7 +39,7 @@ Simple Liquids (3D)
     :inherited-members:
 
     The analytical expression for the direct correlation function used
-    here was derived by Wertheim [1]_:
+    here was derived by Wertheim [Wertheim1963]_:
 
     .. math::
 
@@ -85,7 +86,8 @@ Simple Liquids (3D)
         +\frac{\varphi}{150}\right)+\frac{\pi\beta}{60}\right)q^3
 
 
-    .. [1] M. S. Wertheim, Phys. Rev. Lett. 10, 321 (1963), `DOI:10.1103/PhysRevLett.10.321 <https://doi.org/10.1103/PhysRevLett.10.321>`_
+    .. [Wertheim1963] M. S. Wertheim, Phys. Rev. Lett. 10, 321 (1963),
+       `DOI:10.1103/PhysRevLett.10.321 <https://doi.org/10.1103/PhysRevLett.10.321>`_
 
 
 .. autoclass:: mctspy.structurefactors.hssPYtagged
@@ -133,11 +135,11 @@ Simple Liquids (3D)
     :members:
     :inherited-members:
 
-    Verlet and Weis [2]_ proposed to correct the Percus-Yevick (PY)
+    Verlet and Weis [Verlet1972]_ proposed to correct the Percus-Yevick (PY)
     structure factor essentially by evaluating it at an effective
     density, and on effective wave numbers. The adjustment is calculated
     on the basis of the radial distribution function, for which
-    the formulas by Wertheim [1]_ are used. In terms of the total
+    the formulas by Wertheim [Wertheim1963]_ are used. In terms of the total
     correlation function, one gets
 
     .. math::
@@ -204,7 +206,39 @@ Simple Liquids (3D)
     from simple numerical differentiation (although this could in principle
     be also calculated analytically).
 
-    .. [2] L. Verlet and J.-J. Weis, Phys. Rev. A 5, 939 (1972), `DOI:10.1103/PhysRevA.2.939 <https://doi.org/10.1103/PhysRevA.2.939>`_
+    .. [Verlet1972] L. Verlet and J.-J. Weis, Phys. Rev. A 5, 939 (1972),
+       `DOI:10.1103/PhysRevA.2.939 <https://doi.org/10.1103/PhysRevA.2.939>`_
+
+
+.. autoclass:: mctspy.structurefactors.swsMSA
+    :members:
+    :inherited-members:
+
+    The expression is valid to first order in small well widths and
+    was derived in [Dawson2001]_.
+    The current implementation directly uses the Baxter functions as outlined
+    in the paper; one writes :math:`S(q)^{-1}=Q_qQ_q^*` with
+
+    .. math::
+
+        Q_q=1-2\pi\rho\int_0^\infty dr\,\exp[iqr]Q(r)
+
+    and the approximation consists in specifying :math:`Q(r)`, which is
+    expected to be short-ranged. In the MSA for the square-well system,
+    the function :math:`Q(r)` in fact is non-zero only over the ranges
+    :math:`[0,\delta]`, :math:`[\delta,1]`, and :math:`[1,1+\delta]`,
+    and specified by polynomials of at most degree 3. The Fourier integral
+    over these polynomials is implemented analytically.
+
+    Likewise, for the derivative of the direct correlation function,
+    one uses that :math:`\partial_qQ_q` can be expressed by similar integrals,
+    up to one order higher in the polynomials in :math:`Q(r)`.
+
+
+    .. [Dawson2001] K. Dawson, G. Foffi, M. Fuchs, W. G\ |ouml|\ tze,
+       F. Sciortino, M. Sperl, P. Tartaglia, Th. Voigtmann, and
+       E. Zaccarelli, Phys. Rev. E 63, 011401 (2000),
+       `DOI:10.1103/PhysRevE.63.011401 <https://doi.org/10.1103/PhysRevE.63.011401>`_
 
 
 Simple Liquids (2D)
@@ -214,7 +248,8 @@ Simple Liquids (2D)
     :members:
     :inherited-members:
 
-    The expression implemented here was given by Thorneywork et al. [3]_
+    The expression implemented here was given by
+    Thorneywork et al. [Thorneywork2018]_
 
     .. math::
 
@@ -239,7 +274,7 @@ Simple Liquids (2D)
     equation of state from scaled-particle theory.
 
  
-    .. [3] A. L. Thorneywork, S. K. Schnyer, D. G. A. L. Aarts,
+    .. [Thorneywork2018] A. L. Thorneywork, S. K. Schnyer, D. G. A. L. Aarts,
            J. Horbach, R. Roth, R. P. A. Dullens,
            Molec. Phys. 116, 3245 (2018), `DOI:10.1080/00268976.2018.1492745 <https://doi.org/10.1080/00268976.2018.1492745>`_
 
@@ -263,7 +298,7 @@ Mixtures (3D)
 
     The implementation is based on analytic expressions that follow from
     Fourier transforming the real-space expressions derived by Baxter
-    [4]_ using a Wiener-Hopf factorization method.
+    [Baxter1970]_ using a Wiener-Hopf factorization method.
     This gives the DCF :math:`c_{\alpha\beta}(q)` directly, so that the
     structure factor matrix follows from the Ornstein-Zernike equation.
     For small wave numbers, these analytic expressions are expanded to
@@ -378,5 +413,6 @@ Mixtures (3D)
         \right)q^3+{\mathcal O}(q^5)
 
 
-    .. [4] R. J. Baxter, J. Chem. Phys. 52, 4559 (1970), `DOI:10.1063/1.1673684 <https://doi.org/10.1063/1.1673684>`_
+    .. [Baxter1970] R. J. Baxter, J. Chem. Phys. 52, 4559 (1970),
+       `DOI:10.1063/1.1673684 <https://doi.org/10.1063/1.1673684>`_
 
