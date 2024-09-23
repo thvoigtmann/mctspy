@@ -1,7 +1,7 @@
 ---
 jupytext:
   text_representation:
-    extension: .md
+    extension: .mystnb
     format_name: myst
     format_version: 0.13
     jupytext_version: 1.16.4
@@ -42,7 +42,15 @@ nep.solve()
 ```
 
 ```{code-cell} ipython3
+cs = mct.structurefactors.hssPYtagged(phi=Sq.phi,delta=1)
+model_s = mct.tagged_particle_model (model, cs=cs, D0s=1)
+nep_s = mct.nonergodicity_parameter (model = model_s, maxiter=1500)
+nep_s.solve()
+```
+
+```{code-cell} ipython3
 plt.plot(nep.model.q, nep.f)
+plt.plot(nep_s.model.q, nep_s.f)
 plt.show()
 ```
 
@@ -59,14 +67,74 @@ pbar.close()
 ```
 
 ```{code-cell} ipython3
-qval = 3.4
-qi = np.nonzero(np.isclose(qgrid,qval))[0][0]
+qvals = [3.4,7.4,12.2]
+qis = np.array([np.nonzero(np.isclose(qgrid,qval)) for qval in qvals],dtype=int).reshape(-1)
 ```
 
 ```{code-cell} ipython3
-plt.plot(phi.t, phi.phi[:,qi], label=r'$q = {}'.format(qgrid[qi]))
+for qi in qis:
+    plt.plot(phi.t, phi.phi[:,qi], label=r'$q = {:.1f}$'.format(qgrid[qi]))
 plt.xscale('log')
 plt.legend()
+plt.show()
+```
+
+```{code-cell} ipython3
+tau_indices = phi.phi.shape[0] - np.sum(phi.phi/nep.f<=0.1,axis=0)
+tau_indices[tau_indices>=phi.phi.shape[0]] = -1
+tau = phi.t[tau_indices]
+plt.plot(model.q,tau)
+plt.yscale('log')
+plt.show()
+```
+
+```{code-cell} ipython3
+cs = mct.structurefactors.hssPYtagged(phi=Sq.phi,delta=1)
+model_s = mct.tagged_particle_model (model, cs=cs, D0s=1)
+phi_s = mct.correlator (model = model_s, base=phi, store = True)
+correlators = mct.CorrelatorStack([phi,phi_s])
+```
+
+```{code-cell} ipython3
+model_s0 = mct.tagged_particle_q0 (model_s)
+msd = mct.mean_squared_displacement (model = model_s0, base=phi_s, store=True)
+correlators.append(msd)
+```
+
+```{code-cell} ipython3
+model_ngp = mct.tagged_particle_ngp (model_s0)
+ngp = mct.non_gaussian_parameter (model = model_ngp, base=msd, store=True)
+correlators.append(ngp)
+```
+
+```{code-cell} ipython3
+pbar = tqdm(total=phi.blocks+1)
+correlators.solve_all(callback=lambda d,bs2,bs,c: pbar.update(1))
+pbar.close()
+```
+
+```{code-cell} ipython3
+plt.plot(msd.t, msd.phi[:,0])
+plt.plot(msd.t, 6*msd.t, color='black', linestyle='dashed')
+plt.xscale('log')
+plt.yscale('log')
+plt.show()
+```
+
+```{code-cell} ipython3
+plt.plot(ngp.t[ngp.t>1e-5], (ngp.phi[:,0][ngp.t>1e-5]/ngp.phi[:,1][ngp.t>1e-5]**2 - 1), label='NGP')
+plt.xscale('log')
+plt.legend()
+plt.show()
+```
+
+```{code-cell} ipython3
+for corr,f in [(phi,nep.f),(phi_s,nep_s.f)]:
+    tau_indices = corr.phi.shape[0] - np.sum(corr.phi/f<=0.01,axis=0)
+    tau_indices[tau_indices>=corr.phi.shape[0]] = -1
+    tau = corr.t[tau_indices]
+    plt.plot(model.q[1:],tau[1:])
+plt.yscale('log')
 plt.show()
 ```
 
