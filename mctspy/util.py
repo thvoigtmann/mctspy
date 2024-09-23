@@ -110,7 +110,21 @@ def regula_falsi(f,x0,x1,accuracy=1e-8,maxiter=10000,isclose=np.isclose,fargs=()
         iterations+=1
     return xguess
 
-def lambda_func(x,lambda_val):
+def lambda_func(x,lambda_val=0.0):
+    f"""Evaluate the function determining the MCT exponent parameter.
+
+    Given one of the MCT exponents, calculate the exponent parameter.
+
+    Parameters
+    ----------
+    x : float
+        Exponent value, should be positive an between 0 and 0.395,
+        to designate the critical exponent a, or a negative value between
+        0 and 1 to designate the von Schweidler exponent b.
+    lambda_val : float, optional
+        If non-zero, this will be subtracted from the result.
+        Just for convenience in how this function is called internally.
+    """
     xc = 1 - x
     if xc > 0:
         g = np.exp(scipy.special.loggamma(xc))

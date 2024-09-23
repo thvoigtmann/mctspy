@@ -1,6 +1,33 @@
 Implementation Details
 ======================
 
+Implementing Models
+-------------------
+
+Models that should work with :py:class:`mctspy.correlator` or
+derived time-domain solvers need to implement the following
+methods:
+
+* :py:func:`mctspy.model_base.Aq` to specify the prefactor :math:`A_q`
+    in front of the second time derivative in the evolution equation.
+    For models implementing Newtonian dynamics, this will be
+    For models implementing Brownian dynamics, this should return the
+    symbol `None`.
+* :py:func:`mctspy.model_base.Bq` to specify the prefactor :math:`B_q`
+    in front of the first time derivative in the evolution equation.
+    For models implementing Brownian dynamics, this will be
+* Optionally, :py:func:`mctspy.model_base.Bqinv` can be implemented
+    to avoid numerical inversion of :math:`B_q`.
+* :py:func:`mctspy.model_base.Wq` to specify the prefactor :math:`W_q`
+    in front of the correlator itself in the evolution equation.
+* Optionally, :py:func:`mctspy.model_base.WqSq` can be implemented
+    to return the product :math:`W_q \phi_{q,0}` directly.
+* :py:func:`mctspy.model_base.phi0` to return the initial values of
+    the function to solve for.
+* Optionally, :py:func:`mctspy.model_base.phi0d` can return the
+    initial derivative of the function to solve for. This is ignored
+    if :math:`A_q` is set to zero (Brownian dynamics), since then
+    the derivative is fixed by the other parameters.
 
 beta-Scaling Solvers
 --------------------

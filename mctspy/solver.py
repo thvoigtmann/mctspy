@@ -26,11 +26,11 @@ def _decimize (phi, m, dPhi, dM, blocksize):
         phi[i] = phi[di]
         m[i] = m[di]
 @njit
-def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments, pre_m, *kernel_args):
+def _solve_block (istart, iend, h, Aq, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments, pre_m, *kernel_args):
 
     for i in range(istart,iend):
         mpre = pre_m[i-istart]
-        A = mpre*dM[1] + Wq + 1.5*Bq / h
+        A = mpre*dM[1] + Wq + 1.5*Bq / h + 2.0*Aq / (h*h)
         B = mpre*(-dPhi[1] + phi[0]) / A
 
         ibar = i//2
@@ -41,7 +41,8 @@ def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, ac
         if (i-ibar > ibar):
             C += (phi[i-ibar] - phi[i-ibar-1]) * dM[k]
         C += m[i-ibar] * phi[ibar]
-        C = mpre*C + (-2.0*phi[i-1] + 0.5*phi[i-2]) * Bq/h
+        C = mpre*C + (-2.0*phi[i-1] + 0.5*phi[i-2]) * Bq/h \
+                   + (-5.0*phi[i-1] + 4.0*phi[i-2] - 1.0*phi[i-3]) * Aq/(h*h)
         C = C/A
 
         iterations = 0
@@ -61,14 +62,16 @@ def _solve_block (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, ac
                     dM[i] = 0.5 * (m[i-1] + m[i])
 
 @njit
-def _solve_block_mat (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, M, kernel, maxiter, accuracy, calc_moments, *kernel_args):
+def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, phi, m, dPhi, dM, M, kernel, maxiter, accuracy, calc_moments, useA, useB, *kernel_args):
 
     Ainv = np.zeros_like(Wq,dtype=phi.dtype)
     B = np.zeros_like(Wq,dtype=phi.dtype)
     C = np.zeros_like(Wq,dtype=phi.dtype)
 
+    Ainv = Wq + dM[1] + Bq*1.5/h + Aq*2.0/h**2
     for q in range(M):
-        Ainv[q] = np.linalg.inv(Wq[q] + dM[1,q] + Bq[q]*1.5/h)
+        Ainv[q] = np.linalg.inv(Ainv[q])
+        #Ainv[q] = np.linalg.inv(Wq[q] + dM[1,q] + Bq[q]*1.5/h + Aq[q]*2.0/h**2)
         B[q] = -dPhi[1,q] + phi[0,q]
 
     for i in range(istart,iend):
@@ -84,7 +87,10 @@ def _solve_block_mat (istart, iend, h, Bq, Wq, phi, m, dPhi, dM, M, kernel, maxi
                 C[q] += dM[k,q] @ (phi[i-ibar,q] - phi[i-ibar-1,q])
         for q in range(M):
             C[q] += m[i-ibar,q] @ phi[ibar,q]
-            C[q] += Bq[q] @ (-2*phi[i-1,q] + 0.5*phi[i-2,q]) / h
+            if useB:
+                C[q] += Bq[q] @ (-2*phi[i-1,q] + 0.5*phi[i-2,q]) / h
+            if useA:
+                C[q] += Aq[q] @ (-5*phi[i-1,q] + 4*phi[i-2,q] - phi[i-3,q])/h**2
             C[q] = Ainv[q] @ C[q]
 
         iterations = 0
@@ -168,7 +174,8 @@ class correlator (CorrelatorBase):
     """
     def __init__ (self, blocksize=256, h=1e-9, blocks=60, Tend=0.0,
                   maxinit=50, maxiter=10000, accuracy=1e-9, store=False,
-                  model = model_base, base = None):
+                  model = model_base, base = None,
+                  motion_type = "brownian"):
         if base is None:
             self.h0 = h
             self.halfblocksize = (blocksize//4)*2
@@ -194,6 +201,23 @@ class correlator (CorrelatorBase):
 
         self.store = store
         self.solved = -2
+
+        if 'fixed_motion_type' in dir(model):
+            self.motion_type = model.fixed_motion_type
+            if not self.motion_type == motion_type:
+                print("adjusting to",self.motion_type,"dynamics")
+        else:
+            self.motion_type = motion_type
+        if self.motion_type == 'brownian':
+            self.brownian =  True
+        elif self.motion_type == 'newtonian':
+            self.brownian = False
+            self.damped = False
+        elif self.motion_type == 'damped_newtonian':
+            self.brownian = False
+            self.damped = True
+        else:
+            raise NotImplementedError
 
         self.__alloc__ ()
 
@@ -230,23 +254,59 @@ class correlator (CorrelatorBase):
         phi0 = self.model.phi0()
         self.model.set_base(self.phi_)
         if self.model.scalar():
-            tauinv = self.model.Wq() * phi0 / self.model.Bq()
-            for i in range(iend):
-                t = i*self.h0
-                self.phi_[i] = phi0 - tauinv * t
-                self.jit_kernel (self.m_[i], self.phi_[i], i, t, *self.model.kernel_extra_args())
+            if not self.brownian:
+                Aq = self.model.Aq()
+                if self.damped:
+                    phi0d = self.model.phi0d()
+                    tauinv = phi0d - self.model.Bq() * phi0d / (2*Aq)
+                else:
+                    tauinv = 0.
+                omega = self.model.Wq() * phi0 / Aq
+                for i in range(iend):
+                    t = i*self.h0
+                    self.phi_[i] = phi0 + tauinv * t - omega * t*t/2
+                    self.jit_kernel (self.m_[i], self.phi_[i], i, t,
+                                     *self.model.kernel_extra_args())
+            else:
+                tauinv = self.model.Wq() * phi0 / self.model.Bq()
+                for i in range(iend):
+                    t = i*self.h0
+                    self.phi_[i] = phi0 - tauinv * t
+                    self.jit_kernel (self.m_[i], self.phi_[i], i, t,
+                                     *self.model.kernel_extra_args())
         else:
-            tauinv = np.zeros_like(phi0,dtype=self.model.dtype)
-            #Bq = self.model.Bq()
-            Bqinv = self.model.Bqinv()
-            WqSq = self.model.WqSq()
-            for q in range(self.mdimen):
-                #tauinv[q] = np.linalg.inv(Bq[q]) @ WqSq[q]
-                tauinv[q] = Bqinv[q] @ WqSq[q]
-            for i in range(iend):
-                t = i*self.h0
-                self.phi_[i] = (phi0 - tauinv * t).reshape(-1)
-                self.jit_kernel (self.m_[i].reshape(-1,self.dim,self.dim), self.phi_[i].reshape(-1,self.dim,self.dim), i, t, *self.model.kernel_extra_args())
+            if not self.brownian:
+                Aqinv = self.model.Aqinv()
+                if self.damped:
+                    phi0d = self.model.phi0d()
+                    Bq = self.model.Bq()
+                    tauinv = np.zeros_like(phi0,dtype=self.model.dtype)
+                    for q in range(self.mdimen):
+                        tauinv[q] = phi0d - Aqinv[q] @ Bq[q] @ phi0d/2
+                else:
+                    tauinv = 0.
+                WqSq = self.model.WqSq()
+                omega = np.zeros_like(phi0,dtype=self.model.dtype)
+                for q in range(self.mdimen):
+                    omega[q] = Aqinv[q] @ WqSq[q]
+                for i in range(iend):
+                    t = i*self.h0
+                    self.phi_[i] = (phi0 + tauinv*t - omega*t*t/2).reshape(-1)
+                    self.jit_kernel (self.m_[i].reshape(-1,self.dim,self.dim),
+                                     self.phi_[i].reshape(-1,self.dim,self.dim),
+                                     i, t, *self.model.kernel_extra_args())
+            else:
+                tauinv = np.zeros_like(phi0,dtype=self.model.dtype)
+                Bqinv = self.model.Bqinv()
+                WqSq = self.model.WqSq()
+                for q in range(self.mdimen):
+                    tauinv[q] = Bqinv[q] @ WqSq[q]
+                for i in range(iend):
+                    t = i*self.h0
+                    self.phi_[i] = (phi0 - tauinv * t).reshape(-1)
+                    self.jit_kernel (self.m_[i].reshape(-1,self.dim,self.dim),
+                                     self.phi_[i].reshape(-1,self.dim,self.dim),
+                                     i, t, *self.model.kernel_extra_args())
         for i in range(1,iend):
             self.dPhi_[i] = 0.5 * (self.phi_[i-1] + self.phi_[i])
             self.dM_[i] = 0.5 * (self.m_[i-1] + self.m_[i])
@@ -266,12 +326,26 @@ class correlator (CorrelatorBase):
             pre_m = self.model.kernel_prefactor(np.arange(istart,iend)*self.h)
         else:
             pre_m = np.ones_like(range(istart,iend),dtype=self.model.dtype)
+        if self.brownian:
+            Aq = 0.
+        else:
+            if self.model.scalar():
+                Aq = self.model.Aq()
+            else:
+                Aq = self.model.Aq().reshape(-1,self.dim,self.dim)
+        if self.brownian or self.damped:
+            if self.model.scalar():
+                Bq = self.model.Bq()
+            else:
+                Bq = self.model.Bq().reshape(-1,self.dim,self.dim)
+        else:
+            Bq = 0.
         if self.model.scalar():
-            _solve_block (istart, iend, self.h, self.model.Bq(), self.model.Wq(), self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2), pre_m, *self.model.kernel_extra_args())
+            _solve_block (istart, iend, self.h, Aq, Bq, self.model.Wq(), self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2), pre_m, *self.model.kernel_extra_args())
         else:
             if 'kernel_prefactor' in dir(self.model):
                 raise NotImplementedError
-            _solve_block_mat (istart, iend, self.h, self.model.Bq().reshape(-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), self.phi_.reshape(-1,self.mdimen,self.dim,self.dim), self.m_.reshape(-1,self.mdimen,self.dim,self.dim), self.dPhi_.reshape(-1,self.mdimen,self.dim,self.dim), self.dM_.reshape(-1,self.mdimen,self.dim,self.dim), self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),*self.model.kernel_extra_args())
+            _solve_block_mat (istart, iend, self.h, Aq, Bq, self.model.Wq().reshape(-1,self.dim,self.dim), self.phi_.reshape(-1,self.mdimen,self.dim,self.dim), self.m_.reshape(-1,self.mdimen,self.dim,self.dim), self.dPhi_.reshape(-1,self.mdimen,self.dim,self.dim), self.dM_.reshape(-1,self.mdimen,self.dim,self.dim), self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),not self.brownian,(self.damped or self.brownian),*self.model.kernel_extra_args())
 
     # new interface with reconstruction of already solved cases
     # does not call the jitted _solve_block directly because

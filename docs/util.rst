@@ -26,6 +26,23 @@ which results in :math:`0<a\lesssim0.395` and :math:`0<b<1` since
 .. autofunction:: mctspy.exponents
 
 
+.. autofunction:: mctspy.util.lambda_func
+
+For example, to calculate the exponent for the divergence of the
+structural-relaxation time scale,
+
+.. math::
+
+    \gamma = \frac1{2a}+\frac1{2b}
+
+given knowledge of the critical exponent :math:`a`, you can use
+
+.. code-block:: python
+
+    np.sum(0.5/np.array(mct.util.exponents(mct.util.lambda_func(0.31))))
+
+
+
 Filon Fourier-Laplace Transforms
 --------------------------------
 

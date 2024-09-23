@@ -34,7 +34,11 @@ class model_base (object):
         return True
     def phi0 (self):
         return np.ones(len(self))
+    def phi0d (self):
+        return np.zeros(len(self))
     def Wq (self):
+        return np.ones(len(self))
+    def Aq (self):
         return np.ones(len(self))
     def Bq (self):
         return np.ones(len(self))

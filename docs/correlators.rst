@@ -9,6 +9,7 @@ The "simple liquid-like" MCT equations take the form
 
 .. math::
 
+    A_q\partial_t^2\phi(q,t) +
     B_q\partial_t\phi(q,t) + W_q\phi(q,t)
     +\int_0^t M(q,t-t')\partial_{t'}\phi(q,t')\,dt' = 0
 
