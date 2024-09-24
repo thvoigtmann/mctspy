@@ -1,3 +1,5 @@
+.. include:: <isolat1.txt>
+
 Implementation Details
 ======================
 
@@ -28,6 +30,157 @@ methods:
     initial derivative of the function to solve for. This is ignored
     if :math:`A_q` is set to zero (Brownian dynamics), since then
     the derivative is fixed by the other parameters.
+
+Standard "Moment" Solver
+------------------------
+
+The commonly used solver for MCT equations (:py:class:`mctspy.correlator`)
+is based on an algorithm first proposed by Fuchs and Hofacker [Fuchs1991]_
+called the "moment algorithm". The key idea is the splitting of a
+convolution integral over slowly varying functions at some half-way
+time point according to
+
+.. math::
+
+    \begin{align}
+    I&=\frac{d}{dt}\int_0^tm(t-t')F(t')dt'\\
+    &=F(\bar t)m(\bar t)+\int_0^{\bar t}\dot m(t-t')F(t')\,dt'
+    +\int_0^{t-\bar t}\dot F(t-t')m(t')\,dt'
+    \end{align}
+  
+and then treating the integrals of the form
+
+.. math::
+
+    \int_{t_1}^{t_2}\dot A(t-t')B(t')\,dt'
+    \approx [A(t-t_1)-A(t-t_2)]\frac1{t_2-t_1}\int_{t_1}^{t_2}B(t')\,dt'
+
+where the second part of this expression is referred to as the
+"moment" of the function :math:`B`.
+
+The MCT equations are typically of the form
+
+.. math::
+
+    \begin{align}
+    A_q\frac{d^2}{dt^2}\phi_q(t) &+B_q\frac{d}{dt}\phi_q(t)
+        +W_q\phi_q(t)\\ &+\int_0^t m_q(t-t')\left[\frac{d}{dt'}\phi_q(t')
+        +X_q\phi_q(t')\right]\,dt'=0
+    \end{align}
+
+with specific choices of coefficients and initial values defined by
+a given MCT model.
+
+Specifically, one writes the above convolution integral containing
+the n-th derivative of :math:`\phi_q` as
+
+.. math::
+
+    \begin{align}
+    I&=\int_0^{\bar t}\left[\partial_t^{(n)}m(t-t')\right]\phi(t')\,dt'\\
+      &+\int_0^{t-\bar t}\left[\partial_t^{(n)}\phi(t-t')\right]m(t')\,dt'
+       +B^{(n)}(t,\bar t)
+    \end{align}
+
+
+where boundary terms
+:math:`B^{(1)}(t,\bar t)=m(t-\bar t)\phi(\bar t)-m(t)\phi(0)`
+arise only for :math:`$n=1`, and
+:math:`\bar t=\bar\imath h_d` with :math:`\bar\imath=\lfloor i/2\rfloor`.
+Under some assumptions (that are not always fulfilled if oscillations are
+present in the integrand, but are approximately true if
+:math:`h_d` is small compared to any oscillation period) an extended
+mean-value theorem can be used to rewrite this as
+
+.. math::
+
+    \sum_{k=1}^{\bar\imath}\left[h_d\partial_t^{(n)}m(t-t_k^{m*})\right]
+        d\Phi_k+\sum_{k=1}^{i-\bar\imath}\left[h_d\partial_t^{(n)}
+        \phi(t-t_k^*)\right]dM_k+B^{(n)}(t,\bar t)
+
+where "moments" have been introduced,
+
+.. math::
+
+    dF_k:=\frac1{h_d}\int_{t_{k-1}}^{t_k}f(t')\,dt'
+
+The unknown midvalue points :math:`t_k^*` and `t_k^{m*}` are then
+approximated by one of the boundaries of the interval they are in,
+and a simple two-point finite difference scheme for the derivatives
+leads to
+
+.. math::
+
+    \sum_{k=1}^{\bar\imath}(m_{i-k+1}-m_{i-k})d\Phi_k
+       +\sum_{k=1}^{i-\bar\imath}(\phi_{i-k+1}-\phi_{i-k})dM_k
+       +m_{i-\bar\imath}\phi_{\bar\imath}-m_i\phi_0
+
+for :math:`n=1`, and
+
+.. math::
+
+    \sum_{k=1}^{\bar\imath}(h_d/2)(m_{i-k+1}+m_{i-k})d\Phi_k
+       +\sum_{k=1}^{i-\bar\imath}(h_d/2)(\phi_{i-k+1}+\phi_{i-k})dM_k
+
+for :math:`n=0`. These sums then are the representation of the
+convolution integral in the moment algorithm. Since :math:`m_i` depends
+on :math:`\phi_i` itself in general,  extracting all terms containing either
+value leads to an implicit equation that has to be solved for every grid
+point :math:`i`, using all previously calculated values for grid points
+:math:`j<i`.
+
+In detail, the equation to solve reads
+
+.. math::
+
+    \tilde A\phi_i = \tilde Bm_i[\phi_i] - \tilde C_i
+
+with coefficients
+
+.. math::
+
+    \begin{align}
+      \tilde A &= W + \delta_d^+dM_1 + D_d\\
+      \tilde B &= \phi_0 - \delta_d^+d\Phi_1\\
+      \tilde C_i &= \Sigma_i + m_{i-\bar\imath}\phi_{\bar\imath}
+        -\delta_d^-(m_{i-1}d\Phi_1+\phi_{i-1}dM_1)+\bar D_i\\
+      \Sigma_i &= \sum_{k=2}^{\bar\imath}
+        (\delta_d^+m_{i-k+1}-\delta_d^-m_{i-k})d\Phi_k
+        +\sum_{k=2}^{i-\bar\imath}(\delta_d^+\phi_{i-k+1}-\delta_d^-\phi_{i-k})
+        dM_k\\
+      \delta_d^\pm &= 1\pm(h_d/2)X
+    \end{align}
+
+and :math:`D_d` and :math:`\bar D_i` taken from a discretization of the time
+derivatives,
+
+.. math::
+
+    \begin{align}D_d&=2A/h_d^2+3B/(2h_d)\\
+      \bar D_i&=(A/h_d^2)(-\phi_{i-3}+4\phi_{i-2}-5\phi_{i-1})
+              +(B/h_d)(\phi_{i-2}/2-2\phi_{i-1})
+    \end{align}
+
+The finite-difference schemes employed for the derivatives need a few
+previous grid points to exist always, and thus the very first grid
+points on the first block are calculated from a direct short-time
+expansion of the equations of motion.
+
+The decimation procedure shows that moments can be transferred to
+a coarser grid without loosing further accuracy. This makes clear the gist
+of the moment algorithm: handling integrals over small times, where
+functions may vary quickly, on coarse grids is difficult, but moments
+allow us to keep the accuracy of the finest grid for such integrals.
+The drawback is that in turn we have to accept an error coming from
+the approximation of the midpoint value (which however should be reasonably
+small), and that the algorithm uses more memory.
+
+
+
+
+.. [Fuchs1991] M. Fuchs, W. G\ |ouml|\ tze, I. Hofacker, and A. Latz,
+   J. Phys.: Condens. Matter 3, 5047 (1991)
+   `DOI:10.1088/0953-8984/3/26/022 <https://doi.org/10.1088/0953-8984/3/26/022>`_
 
 beta-Scaling Solvers
 --------------------
