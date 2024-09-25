@@ -27,35 +27,27 @@ def _fsolve_mat (f, m, W, f0, phi0, WS, kernel, M, accuracy, maxiter, *kernel_ar
     iterations = 0
     converged = False
     lowval = False
-    print("S")
-    newf = f0
+    newf = f0.copy()
+    #newf = phi0.copy()
     print(newf)
     while (not converged and iterations < maxiter):
         iterations+=1
         f[0] = newf
-        print("iterations",iterations) #,f[0])
         kernel (m[0], f[0], 0, 0., *kernel_args)
-        print("M ") #,m[0])
         if 0 and not lowval:
             for q in range(M):
                 newf[q] = phi0[q] - np.linalg.inv(W[q] + m[0][q]) @ WS[q]
         else:
             for q in range(M):
                 newf[q] = np.linalg.inv(W[q] + m[0][q]) @ m[0][q] @ phi0[q]
-        #if not iterations%100: print (newf.reshape(-1)[:4], f[0].reshape(-1)[:4], newf.reshape(-1)[:4]-f[0].reshape(-1)[:4])
         if np.isclose (newf.reshape(-1), f[0].reshape(-1), rtol=accuracy, atol=0.0).all():
             converged = True
             #f[0] = newf
         if np.isclose (newf.reshape(-1), 0.0, rtol=0.0, atol=10*accuracy).all():
             # suspect liquid solution
             lowval = True
-        #if not iterations%100: print("iter",iterations,np.mean(np.abs(newf-f[0])))
-    print("finishing")
     df = np.mean(np.abs(newf-f[0]))
-    print("copy")
-    f[0] = newf.copy()
-    print("returning")
-    print("returning",df)
+    f[0] = newf
     return df
 
 class nonergodicity_parameter (object):
@@ -109,10 +101,10 @@ class nonergodicity_parameter (object):
             self.m = self.m_[0]
         else:
             print("START")
-            f0 = self.model.phi0().copy()
+            f0 = self.model.phi0()
             print("START",f0)
             for b in range(blocks):
-                df = _fsolve_mat(self.f_.reshape(1,-1,self.dim,self.dim), self.m_.reshape(1,-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), f0.reshape(1,-1,self.dim,self.dim), self.model.phi0().reshape(-1,self.dim,self.dim), self.model.WqSq().reshape(-1,self.dim,self.dim), self.jit_kernel, self.M, self.accuracy, block_iter, *self.model.kernel_extra_args())
+                df = _fsolve_mat(self.f_.reshape(1,-1,self.dim,self.dim), self.m_.reshape(1,-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), f0.reshape(-1,self.dim,self.dim), self.model.phi0().reshape(-1,self.dim,self.dim), self.model.WqSq().reshape(-1,self.dim,self.dim), self.jit_kernel, self.M, self.accuracy, block_iter, *self.model.kernel_extra_args())
                 print("done",df)
                 if callback is not None:
                     callback(block_iter*(b+1),df)
