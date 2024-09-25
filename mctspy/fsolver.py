@@ -5,10 +5,10 @@ from numba import njit
 from .__util__ import void
 
 @njit
-def _fsolve (f, m, W, phi0, kernel, M, accuracy, maxiter, *kernel_args):
+def _fsolve (f, m, W, f0, phi0, kernel, M, accuracy, maxiter, *kernel_args):
     iterations = 0
     converged = False
-    newf = phi0
+    newf = f0
     while (not converged and iterations < maxiter):
         iterations+=1
         f[0] = newf
@@ -16,33 +16,47 @@ def _fsolve (f, m, W, phi0, kernel, M, accuracy, maxiter, *kernel_args):
         newf = m[0] / (W+m[0]) * phi0
         if np.isclose (newf, f[0], rtol=accuracy, atol=0.0).all():
             converged = True
-            f[0] = newf
-        if not iterations%100: print("iter",iterations,np.mean(np.abs(newf-f[0])))
+            #f[0] = newf
+        #if not iterations%100: print("iter",iterations,np.mean(np.abs(newf-f[0])))
+    df = np.mean(np.abs(newf-f[0]))
+    f[0] = newf
+    return df
+
 @njit
-def _fsolve_mat (f, m, W, phi0, WS, kernel, M, accuracy, maxiter, *kernel_args):
+def _fsolve_mat (f, m, W, f0, phi0, WS, kernel, M, accuracy, maxiter, *kernel_args):
     iterations = 0
     converged = False
     lowval = False
-    newf = phi0.copy()
+    print("S")
+    newf = f0
+    print(newf)
     while (not converged and iterations < maxiter):
         iterations+=1
         f[0] = newf
+        print("iterations",iterations) #,f[0])
         kernel (m[0], f[0], 0, 0., *kernel_args)
-        #newf = phi0 + np.linalg.inv(W + m[0]) @ W
+        print("M ") #,m[0])
         if 0 and not lowval:
             for q in range(M):
                 newf[q] = phi0[q] - np.linalg.inv(W[q] + m[0][q]) @ WS[q]
         else:
             for q in range(M):
                 newf[q] = np.linalg.inv(W[q] + m[0][q]) @ m[0][q] @ phi0[q]
-        if not iterations%100: print (newf.reshape(-1)[:4], f[0].reshape(-1)[:4], newf.reshape(-1)[:4]-f[0].reshape(-1)[:4])
+        #if not iterations%100: print (newf.reshape(-1)[:4], f[0].reshape(-1)[:4], newf.reshape(-1)[:4]-f[0].reshape(-1)[:4])
         if np.isclose (newf.reshape(-1), f[0].reshape(-1), rtol=accuracy, atol=0.0).all():
             converged = True
-            f[0] = newf
+            #f[0] = newf
         if np.isclose (newf.reshape(-1), 0.0, rtol=0.0, atol=10*accuracy).all():
             # suspect liquid solution
             lowval = True
-        if not iterations%100: print("iter",iterations,np.mean(np.abs(newf-f[0])))
+        #if not iterations%100: print("iter",iterations,np.mean(np.abs(newf-f[0])))
+    print("finishing")
+    df = np.mean(np.abs(newf-f[0]))
+    print("copy")
+    f[0] = newf.copy()
+    print("returning")
+    print("returning",df)
+    return df
 
 class nonergodicity_parameter (object):
     """Solver for the nonergodicity parameter of a simple liquid
@@ -68,19 +82,42 @@ class nonergodicity_parameter (object):
         self.m_ = np.zeros((1,self.M*self.dim**2),dtype=model.dtype)
         self.jit_kernel = model.get_kernel()
 
-    def solve (self):
+    def solve (self, callback=None, callback_every=0):
         """Solve for the nonergodicity parameter.
 
         Result: The object's field `f` will be set to the NEP values,
         and `m` to the corresponding memory kernel.
         """
         self.model.set_base(self.f_)
+        if callback is not None and callback_every>0:
+            blocks = self.maxiter//callback_every
+            block_iter = callback_every
+            if self.maxiter > block_iter*blocks:
+                print ("dropping",self.maxiter-block_iter*blocks,"iterations")
+        else:
+            blocks = 1
+            block_iter = self.maxiter
         if self.model.scalar():
-            _fsolve(self.f_, self.m_, self.model.Wq(), self.model.phi0(), self.jit_kernel, self.M, self.accuracy, self.maxiter, *self.model.kernel_extra_args())
+            f0 = self.model.phi0().copy()
+            for b in range(blocks):
+                df = _fsolve(self.f_, self.m_, self.model.Wq(), f0, self.model.phi0(), self.jit_kernel, self.M, self.accuracy, block_iter, *self.model.kernel_extra_args())
+                if callback is not None:
+                    callback(block_iter*(b+1),df)
+                if b < blocks-1:
+                    f0 = self.f_[0]
             self.f = self.f_[0]
             self.m = self.m_[0]
         else:
-            _fsolve_mat(self.f_.reshape(1,-1,self.dim,self.dim), self.m_.reshape(1,-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), self.model.phi0().reshape(-1,self.dim,self.dim), self.model.WqSq().reshape(-1,self.dim,self.dim), self.jit_kernel, self.M, self.accuracy, self.maxiter, *self.model.kernel_extra_args())
+            print("START")
+            f0 = self.model.phi0().copy()
+            print("START",f0)
+            for b in range(blocks):
+                df = _fsolve_mat(self.f_.reshape(1,-1,self.dim,self.dim), self.m_.reshape(1,-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), f0.reshape(1,-1,self.dim,self.dim), self.model.phi0().reshape(-1,self.dim,self.dim), self.model.WqSq().reshape(-1,self.dim,self.dim), self.jit_kernel, self.M, self.accuracy, block_iter, *self.model.kernel_extra_args())
+                print("done",df)
+                if callback is not None:
+                    callback(block_iter*(b+1),df)
+                if b < blocks-1:
+                    f0 = self.f_[0]
             self.f = self.f_[0].reshape(-1,self.dim,self.dim)
             self.m = self.m_[0].reshape(-1,self.dim,self.dim)
 
