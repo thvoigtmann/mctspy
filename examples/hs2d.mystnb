@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 
 ```{code-cell} ipython3
 from tqdm import tqdm
+import itertools
 ```
 
 ```{code-cell} ipython3
@@ -101,9 +102,14 @@ pbar.close()
 ```
 
 ```{code-cell} ipython3
+colors = itertools.cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
 for qi in qis:
-    plt.plot(phi_s.t, phi_s.phi[:,qi], label=r'$q = {:.1f}$'.format(qgrid[qi]))
+    c = next(colors)
+    plt.plot(phi.t,phi.phi[:,qi],color=c,label=r'ISF $q = {:.1f}$'.format(qgrid[qi]))
+    plt.plot(phi_s.t, phi_s.phi[:,qi], label=r'SISF $q = {:.1f}$'.format(qgrid[qi]),linestyle='dashed',color=c)
+    plt.plot(phi.t,np.exp(-qgrid[qi]**2/Sq.Sq(qgrid)[0][qi] * phi.t), color='black', linestyle='dotted')
 plt.xscale('log')
+plt.xlim(1e-6,1e5)
 plt.legend()
 plt.show()
 ```
