@@ -160,7 +160,9 @@ class tagged_particle_model_2d (model_base):
                     minval = -1.0
                     if pmax > q[-1]:
                         minval = x[-1]
-                    A[qi,ki] = 2*q[ki]**2 * g2(S[p]*f[p]*c[ki]**2,x,1,minval)
+                    A[qi,ki] = 2*q[qi]**2 * g0(f[p]*S[p]*c[p]**2,x,1,minval) \
+                          - 4*q[qi]*q[ki] * g1(f[p]*S[p]*c[p]**2,x,1,minval) \
+                          + 2*q[ki]**2 * g2(f[p]*S[p]*c[p]**2,x,1,minval)
         self.__calcV__ = calc_V
     def kernel_extra_args (self):
         return [self.base.phi]
