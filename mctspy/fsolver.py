@@ -91,6 +91,7 @@ class nonergodicity_parameter (object):
             block_iter = self.maxiter
         if self.model.scalar():
             f0 = self.model.phi0().copy()
+            print(self.f_.shape,f0.shape, self.model.phi.shape)
             for b in range(blocks):
                 df = _fsolve(self.f_, self.m_, self.model.Wq(), f0, self.model.phi0(), self.jit_kernel, self.M, self.accuracy, block_iter, *self.model.kernel_extra_args())
                 if callback is not None:
@@ -100,12 +101,9 @@ class nonergodicity_parameter (object):
             self.f = self.f_[0]
             self.m = self.m_[0]
         else:
-            print("START")
             f0 = self.model.phi0()
-            print("START",f0)
             for b in range(blocks):
                 df = _fsolve_mat(self.f_.reshape(1,-1,self.dim,self.dim), self.m_.reshape(1,-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), f0.reshape(-1,self.dim,self.dim), self.model.phi0().reshape(-1,self.dim,self.dim), self.model.WqSq().reshape(-1,self.dim,self.dim), self.jit_kernel, self.M, self.accuracy, block_iter, *self.model.kernel_extra_args())
-                print("done",df)
                 if callback is not None:
                     callback(block_iter*(b+1),df)
                 if b < blocks-1:
