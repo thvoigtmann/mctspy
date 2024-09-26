@@ -120,3 +120,63 @@ class simple_liquid_model_2d (model_base):
                     #assert(not np.isnan(A[qi,ki]))
             m[:] = -pre * np.sum((q[:-1]*phi[:-1]*S[:-1]*A[:,:-1] + q[1:]*phi[1:]*S[1:]*A[:,1:])/2 * np.diff(q), axis=-1)
         return ker
+
+class tagged_particle_model_2d (model_base):
+    def __init__ (self, base_model, cs, D0s=1.0):
+        model_base.__init__(self)
+        self.base = base_model
+        self.q = base_model.q
+        self.cs = cs.cq(self.q)
+        self.M = self.q.shape[0]
+        self.__init_vertices__()
+        self.D0 = D0s
+    def __len__ (self):
+        return self.M
+    def Wq (self):
+        return self.q*self.q
+    def Bq (self):
+        return np.ones(self.M)/self.D0
+    def __init_vertices__ (self):
+        self.__A__ = np.zeros((self.M,self.M))
+        Aqk = void(self.__A__)
+        q = self.q
+        c = self.cs
+        S = self.base.sq
+        M = self.M
+        @njit
+        def calc_V (V, f):
+            A = nparray(Aqk)
+            for qi in range(M):
+                for ki in range(M):
+                    if ki <= qi:
+                        pmin = q[qi] - q[ki]
+                    else:
+                        pmin = q[ki] - q[qi]
+                    pmax = q[qi] + q[ki]
+                    x = (q[qi]**2 + q[ki]**2 - q**2) / (2*q[qi]*q[ki])
+                    mask = (x>=-1) & (x<=1) & (q>=pmin)
+                    x = x[mask]
+                    p = np.arange(M)[mask]
+                    minval = -1.0
+                    if pmax > q[-1]:
+                        minval = x[-1]
+                    A[qi,ki] = 2*q[ki]**2 * g2(S[p]*f[p]*c[ki]**2,x,1,minval)
+        self.__calcV__ = calc_V
+    def kernel_extra_args (self):
+        return [self.base.phi]
+    def make_kernel (self):
+        q = self.q
+        pre = self.base.rho/(4*np.pi**2)
+        Aqk = void(self.__A__)
+        self.__i__ = np.zeros(1,dtype=int)
+        __i__ = void(self.__i__)
+        Vfunc = self.__calcV__
+        @njit
+        def ker (ms, phis, i, t, phi):
+            A = nparray(Aqk)
+            last_i = nparray(__i__)
+            if last_i[0]==0 or not (i==last_i[0]):
+                Vfunc(A, phi[i])
+                last_i[0] = i
+            ms[:] = -pre * np.sum((q[:-1]*phis[:-1]*A[:,:-1] + q[1:]*phis[1:]*A[:,1:])/2 * np.diff(q), axis=-1)
+        return ker
