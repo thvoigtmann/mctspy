@@ -6,7 +6,7 @@ from .standard import simple_liquid_model, tagged_particle_model, tagged_particl
 from .standard_2d import simple_liquid_model_2d, tagged_particle_model_2d
 from .mixture import mixture_model
 from .abp import abp_model_2d
-from .util import CorrelatorStack, exponents, filon_integrate, filon_cos_transform, filon_sin_transform
+from .util import CorrelatorStack, exponents, evscan, filon_integrate, filon_cos_transform, filon_sin_transform
 
 from .__util__ import model_base
 

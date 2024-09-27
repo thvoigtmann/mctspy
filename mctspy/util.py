@@ -192,6 +192,113 @@ def Blambda(lambda_val):
     return np.interp(lambda_val, __Bll__, __BlB__,left=np.nan,right=np.nan)
 
 
+def evscan(phi0, phi1, calc_ev, eps=1e-6, accuracy=1e-6):
+    r"""Scan for an MCT critical point based on the maximum eigenvalue.
+
+    Given a control-parameter interval [phi0,phi1], and a method to
+    calculate the eigenvalues `calc_ev`, perform a heuristic bisection
+    search to find the point in the interval with the eigenvalue closest
+    to one.
+
+    Parameters
+    ----------
+    phi0, phi1 : float, float
+        Interval of control parameters to search, must be phi0 < phi1.
+    calc_ev : callable
+        Must be a function taking a single control parameter phi
+        as input and returning an :py:class:`mctspy.eigenvalue` object.
+    eps : float, default: 1e-6
+        Precision in the control-parameter distance; the seaarch stops
+        once the interval in phi is narrower than eps.
+    accuracy : float, default: 1e-6
+        Accuracy with which to accept an eigenvalue as zero.
+
+    Notes
+    -----
+    The control parameters are called phi, but do not have any physical
+    meaning, they can be a packing fraction or any other parameter used
+    by the `calc_ev` method.
+
+    Examples
+    --------
+    >>> import mctspy as mct
+    >>> def calc_ev(phi):
+    >>>     Sq = mct.structurefactors.hssPY(phi)
+    >>>     model = mct.simple_liquid_model (Sq, qgrid)
+    >>>     nep = mct.nonergodicity_parameter (model = model, maxiter=10000)
+    >>>     nep.solve()
+    >>>     ev = mct.eigenvalue(nep)
+    >>>     ev.solve()
+    >>>     return ev
+    >>> phis, evs = mct.util.evscan (0.51, 0.52, calc_ev)
+    """
+    phis = [phi0,(phi0+phi1)/2,phi1]
+    evs = [calc_ev(phi) for phi in phis]
+    dphi = phis[-1]-phis[0]
+    while dphi >= eps:
+        print (phis)
+        if evs[0].eval <= evs[1].eval and evs[1].eval <= evs[2].eval:
+            if evs[1].eval < accuracy:
+                print ("ev0 = ev1 = 0 < ev2: go between last two")
+                pos=1
+                phi = (phis[1]+phis[2])/2
+                phis[0] = phis[1]
+                evs[0] = evs[1]
+            else:
+                if evs[0].eval < accuracy:
+                    print ("0 = ev0 < ev1 < ev2: go between first two")
+                    pos=1
+                    phi = (phis[0]+phis[1])/2
+                    phis[2] = phis[1]
+                    evs[2] = evs[1]
+                else:
+                    print ("0 < ev0 < ev1 < ev2: go to higher values")
+                    pos=2
+                    phi = phis[2] + dphi
+                    phis[0] = phis[1]
+                    phis[1] = phis[2]
+                    evs[0] = evs[1]
+                    evs[1] = evs[2]
+        else:
+            if evs[0].eval > evs[1].eval and evs[1].eval >= evs[2].eval:
+                print ("ev0 > ev1 >= ev2: go to lower values")
+                pos=0
+                phi = phis[0] - dphi
+                if phi<0:
+                    phi = 0.
+                phis[2] = phis[1]
+                phis[1] = phis[0]
+                evs[2] = evs[1]
+                evs[1] = evs[0]
+            else:
+                if evs[1].eval > evs[0].eval and evs[1].eval > evs[2].eval:
+                    print ("ev1 is maximum...")
+                    if evs[0].eval > evs[2].eval or (evs[0].eval < accuracy and not (evs[2].eval < accuracy)):
+                        print ("go between first two")
+                        pos=1
+                        phi = (phis[0]+phis[1])/2
+                        phis[2] = phis[1]
+                        evs[2] = evs[1]
+                    else:
+                        print ("go between last two")
+                        pos=1
+                        phi = (phis[1]+phis[2])/2
+                        phis[0] = phis[1]
+                        evs[0] = evs[1]
+                else:
+                    if evs[1].eval >= evs[0].eval and evs[1].eval >= evs[2].eval:
+                        print ("accuracy problem? deciding that ev1 is maximum, go between last two")
+                        pos=1
+                        phi = (phis[1]+phis[2])/2
+                        phis[0] = phis[1]
+                        evs[0] = evs[1]
+                    else:
+                        print ("cannot decide what to do",[ev.eval for ev in evs])
+        evs[pos] = calc_ev(phi)
+        phis[pos] = phi
+        dphi = (phis[2]-phis[0])/2
+    return phis,evs
+
 
 def filon_integrate(f,x,G0,G1):
     r"""Filon-Tuck integration routine for weighted integrals.

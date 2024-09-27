@@ -1,6 +1,24 @@
 Utilities
 =========
 
+Critical points of MCT
+----------------------
+
+The glass-transition points of MCT are determined as the points where
+the eigenvalue of the stability matrix is unity; the eigenvalues are
+strictly less than one in regular glassy states, and zero in the liquid.
+Thus the best way to locate an MCT glass transition is to scan for a
+maximum, and accept it as a critical point if it is sufficiently close
+to unity within some accuracy.
+
+The search can be done with a simple bisection method, with slight
+adaptation to catch boundary cases that are adapted to the behavior
+of the MCT eigenvalue close to critical points. This is provided as
+a convencience helper:
+
+.. autofunction:: mctspy.util.evscan
+
+
 MCT exponents
 -------------
 
