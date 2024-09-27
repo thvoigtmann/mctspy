@@ -3,7 +3,7 @@ import scipy.linalg as la
 
 from numba import njit, complex128
 from .__util__ import model_base, void, nparray
-from .standard_2d import g0, g1, g2
+from .standard_2d import g0unsum, g1unsum, g2unsum
 
 def _dq (q):
     return np.diff(q, append=2*q[-1]-q[-2])
@@ -104,11 +104,66 @@ class abp_model_2d (model_base):
                     self.wTinv[:,L+l,L+ld] -= u0*wTinv0[:,L+l,L] * \
                         (wTinv0[:,L+1,L+ld]+wTinv0[:,L-1,L+ld])/ \
                         (self.q**2 + u0*(wTinv0[:,L+1,L]+wTinv0[:,L-1,L]))
-        self.__A__ = np.zeros((self.M,self.M,self.S,self.S),dtype=self.dtype)
-        self.__B__ = np.zeros((self.M,self.M,self.S,self.S),dtype=self.dtype)
-        self.__C__ = np.zeros((self.M,self.M,self.S,self.S),dtype=self.dtype)
-        self.__D__ = np.zeros((self.M,self.M,self.S,self.S),dtype=self.dtype)
+        self.__A__ = np.zeros((self.M,self.M,self.M),dtype=self.dtype)
+        self.__B__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
+        self.__C__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
+        self.__D__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
         #self.__phase__ = np.zeros((self.M,self.S,self.S,self.S,self.S),dtype=self.dtype)
+        A, B, C, D = self.__A__, self.__B__, self.__C__, self.__D__
+        q = self.q
+        M = self.M
+        lr = np.arange(-L,L+1)
+        pre = self.rho/(8*np.pi**2)
+        Pe_t = self.v0/self.D0
+        v0pre = 0.5j*Pe_t*self.sq
+        c = self.cq
+        for qi in range(M):
+            for ki in range(M):
+                if ki <= qi:
+                    pmin = q[qi] - q[ki]
+                else:
+                    pmin = q[ki] - q[qi]
+                pmax = q[qi] + q[ki]
+                x = (q[qi]**2 + q[ki]**2 - q**2) / (2*q[qi]*q[ki])
+                mask = (x>=-1) & (x<=1) & (q>=pmin)
+                x = x[mask]
+                p = np.arange(M)[mask]
+                minval = -1.0
+                if pmax > q[-1]:
+                    minval = x[-1]
+                y = np.sqrt(1-x*x)
+                thk = np.power(x[:,None]+1j*y[:,None],lr)
+                thp = np.power(q[ki]/x[:,None],lr) * np.power((q[qi]/q[ki]-x[:,None])-1j*y[:,None],lr)
+                assert (not np.isnan(thk).any())
+                assert (not np.isnan(thp).any())
+                for l in lr:
+                    for ld in lr:
+                        A[qi,ki,p] = pre * (2*q[qi]**2 * g0unsum(c[p]**2,x,1,minval) \
+                                 - 4*q[qi]*q[ki] * g1unsum(c[p]**2,x,1,minval) \
+                                 + 2*q[ki]**2 * g2unsum(c[p]**2,x,1,minval) )
+                        B[qi,ki,p,L+l,L+ld] = pre * (2*q[qi]*q[ki] * g1unsum(thp[:,L+ld]*thk[:,L-l]*c[ki]*c[p],x,1,minval) \
+                                 - 2*q[ki]**2 * g2unsum(thp[:,L+ld]*thk[:,L-l]*c[ki]*c[p],x,1,minval) )
+                        C[qi,ki,p,L+l,L+ld] = pre * (2*q[qi]*q[ki] * g1unsum(thp[:,L-l]*thk[:,L+ld]*c[ki]*c[p],x,1,minval) \
+                                 - 2*q[ki]**2 * g2unsum(thp[:,L-l]*thk[:,L+ld]*c[ki]*c[p],x,1,minval) )
+                        D[qi,ki,p,L+l,L+ld] = pre * 2*q[ki]**2 * g2unsum(thp[:,L+ld]*thp[:,L-l]*c[ki]**2,x,1,minval)
+                        if not Pe_t==0:
+                            if L>=1:
+                                A[qi,ki,L+l,L+ld] += v0pre[qi] * ( \
+                                    2 * g0((phi[p,L-1,L]+phi[p,L+1,L])*p*Sq[p]*c[p]**2*thk[:,L-l]*thk[:,L+ld],x,1,minval) \
+                                    - 2*q[ki]/q[qi] * g1((phi[p,L-1,L]+phi[p,L+1,L])*p*Sq[p]*c[p]**2*thk[:,L-l]*thk[:,L+ld],x,1,minval) )
+                                B[qi,ki,L+l,L+ld] += v0pre[qi] * \
+                                    2*q[ki]/q[qi] * g1((phi[p,L-1,L+ld]+phi[p,L+1,L+ld])*p*Sq[p]*c[p]*c[ki]*thk[:,L-l]*thp[:,L+ld],x,1,minval)
+                            if L>=abs(l)+1:
+                                C[qi,ki,L+l,L+ld] += v0pre[qi] * ( \
+                                    - 2 * g0((phi[p,L+l-1,L]*thk[:,L-1]*thp[:,L+1]+phi[p,L+l+1,L]*thk[:,L+1]*thp[:,L-1])*q[ki]*c[ki]*c[p]*thk[:,L+ld]*thp[:,L-l],x,1,minval) \
+                                    + 2*q[ki]/q[qi] * g1((phi[p,L+l-1,L]*thk[:,L-1]*thp[:,L+1]+phi[p,L+l+1,L]*thk[:,L+1]*thp[:,L-1])*q[ki]*c[ki]*c[p]*thk[:,L+ld]*thp[:,L-l],x,1,minval) )
+                                D[qi,ki,L+l,L+ld] += v0pre[qi] * \
+                                    (-2) * q[ki]/q[qi] * g1((phi[p,L+l-1,L+ld]*thk[:,L-1]*thp[:,L+1]+phi[p,L+l+1,L+ld]*thk[:,L+1]*thp[:,L-1])*q[ki]*c[ki]**2*thp[:,L-l]*thp[:,L+ld],x,1,minval)
+                assert (not np.isnan(A[qi,ki]).any())
+                assert (not np.isnan(B[qi,ki]).any())
+                assert (not np.isnan(C[qi,ki]).any())
+                assert (not np.isnan(D[qi,ki]).any())
+
     def make_kernel (self):
         M, S, L = self.M, self.S, self.L
         q = self.q
@@ -119,7 +174,7 @@ class abp_model_2d (model_base):
         Dqk = void(self.__D__)
         #Pqk = void(self.__phase__)
         omega_T_inv = void(self.wTinv)
-        Sq, c = sefl.sq, self.cq
+        Sq, c = self.sq, self.cq
         Pe_t = self.v0/self.D0
         @njit
         def ker (m, phi, i, t):
@@ -130,61 +185,15 @@ class abp_model_2d (model_base):
             #phase = nparray(Pqk)
             wTinv = nparray(omega_T_inv)
             lr = np.arange(-L,L+1)
+            Ainner = np.sum(A*phi[:,L,L],axis=-1)
+            Binner = np.sum(B*phi[:,L,None,:],axis=-3)
+            Cinner = np.sum(C*phi[:,:,L,None],axis=-3)
+            Dinner = np.sum(D*phi[:,:,:],axis=-3)
+            m[:,:,:] = - ( \
+                np.sum((q[:-1,None,None]*phi[:-1,:,:]*Ainner[:,:-1,None,None] + q[1:,None,None]*phi[1:,:,:]*Ainner[:,1:,None,None])/2 * np.diff(q)[:,None,None], axis=1) \
+                + np.sum((q[:-1,None,None]*phi[:-1,:,L,None]*Binner[:,:-1,:,:] + q[1:,None,None]*phi[1:,:,L,None]*Binner[:,1:,:,:])/2 * np.diff(q)[:,None,None], axis=1) \
+                + np.sum((q[:-1,None,None]*phi[:-1,L,None,:]*Cinner[:,:-1,:,:] + q[1:,None,None]*phi[1:,L,None,:]*Cinner[:,1:,:,:])/2 * np.diff(q)[:,None,None], axis=1) \
+                + np.sum((q[:-1,None,None]*phi[:-1,L,L,None,None]*Dinner[:,:-1,:,:] + q[1:,None,None]*phi[1:,L,L,None,None]*Dinner[:,1:,:,:])/2 * np.diff(q)[:,None,None], axis=1))
             for qi in range(M):
-                for l in lr:
-                    for ld in lr:
-                        m[qi,L+l,L+ld] = 0. + 1j*0.
-                for ki in range(M):
-                    if ki <= qi:
-                        pmin = q[qi] - q[ki]
-                    else:
-                        pmin = q[ki] - q[qi]
-                    pmax = q[qi] + q[ki]
-                    x = (q[qi]**2 + q[ki]**2 - q**2) / (2*q[qi]*q[ki])
-                    mask = (x>=-1) & (x<=1) & (q>=pmin)
-                    x = x[mask]
-                    p = np.arange(M)[mask]
-                    minval = -1.0
-                    if pmax > q[-1]:
-                        minval = x[-1]
-                    y = np.sqrt(1-x*x)
-                    thk = np.power(x[:,None]+1j*y[:,None],lr)
-                    thp = np.power(q[ki]/x[:,None],lr) * np.power((q[qi]/q[ki]-x[:,None])-1j*y[:,None],lr)
-                    assert (not np.isnan(thk).any())
-                    assert (not np.isnan(thp).any())
-                    for l in lr:
-                        for ld in lr:
-                            A[qi,ki,L+l,L+ld] = pre * (2*q[qi]**2 * g0(phi[p,L,L]*c[p]**2,x,1,minval) \
-                                     - 4*q[qi]*q[ki] * g1(phi[p,L,L]*c[p]**2,x,1,minval) \
-                                     + 2*q[ki]**2 * g2(phi[p,L,L]*c[p]**2,x,1,minval) )
-                            B[qi,ki,L+l,L+ld] = pre * (2*q[qi]*q[ki] * g1(phi[p,L,L+ld]*thp[:,L+ld]*thk[:,L-l]*c[ki]*c[p],x,1,minval) \
-                                     - 2*q[ki]**2 * g2(phi[p,L,L+ld]*thp[:,L+ld]*thk[:,L-l]*c[ki]*c[p],x,1,minval) )
-                            C[qi,ki,L+l,L+ld] = pre * (2*q[qi]*q[ki] * g1(phi[p,L+l,L]*thp[:,L-l]*thk[:,L+ld]*c[ki]*c[p],x,1,minval) \
-                                     - 2*q[ki]**2 * g2(phi[p,L+l,L]*thp[:,L-l]*thk[:,L+ld]*c[ki]*c[p],x,1,minval) )
-                            D[qi,ki,L+l,L+ld] = pre * 2*q[ki]**2 * g2(phi[p,L+l,L+ld]*thp[:,L+ld]*thp[:,L-l]*c[ki]**2,x,1,minval)
-                            if not Pe_t==0:
-                                v0pre = 0.5j*Pe_t*Sq[qi]
-                                if L>=1:
-                                    A[qi,ki,L+l,L+ld] += v0pre * ( \
-                                        2 * g0((phi[p,L-1,L]+phi[p,L+1,L])*p*Sq[p]*c[p]**2*thk[:,L-l]*thk[:,L+ld],x,1,minval) \
-                                        - 2*q[ki]/q[qi] * g1((phi[p,L-1,L]+phi[p,L+1,L])*p*Sq[p]*c[p]**2*thk[:,L-l]*thk[:,L+ld],x,1,minval) )
-                                    B[qi,ki,L+l,L+ld] += v0pre * \
-                                        2*q[ki]/q[qi] * g1((phi[p,L-1,L+ld]+phi[p,L+1,L+ld])*p*Sq[p]*c[p]*c[ki]*thk[:,L-l]*thp[:,L+ld],x,1,minval)
-                                if L>=abs(l)+1:
-                                    C[qi,ki,L+l,L+ld] += v0pre * ( \
-                                        - 2 * g0((phi[p,L+l-1,L]*thk[:,L-1]*thp[:,L+1]+phi[p,L+l+1,L]*thk[:,L+1]*thp[:,L-1])*q[ki]*c[ki]*c[p]*thk[:,L+ld]*thp[:,L-l],x,1,minval) \
-                                        + 2*q[ki]/q[qi] * g1((phi[p,L+l-1,L]*thk[:,L-1]*thp[:,L+1]+phi[p,L+l+1,L]*thk[:,L+1]*thp[:,L-1])*q[ki]*c[ki]*c[p]*thk[:,L+ld]*thp[:,L-l],x,1,minval) )
-                                    D[qi,ki,L+l,L+ld] += v0pre * \
-                                        (-2) * q[ki]/q[qi] * g1((phi[p,L+l-1,L+ld]*thk[:,L-1]*thp[:,L+1]+phi[p,L+l+1,L+ld]*thk[:,L+1]*thp[:,L-1])*q[ki]*c[ki]**2*thp[:,L-l]*thp[:,L+ld],x,1,minval)
-                    assert (not np.isnan(A[qi,ki]).any())
-                    assert (not np.isnan(B[qi,ki]).any())
-                    assert (not np.isnan(C[qi,ki]).any())
-                    assert (not np.isnan(D[qi,ki]).any())
-            mq = - ( \
-                np.sum((q[:-1,None,None]*phi[:-1,:,:]*A[:,:-1,:,:] + q[1:,None,None]*phi[1:,:,:]*A[:,1:,:,:])/2 * np.diff(q)[:,None,None], axis=1) \
-                + np.sum((q[:-1,None,None]*phi[:-1,:,L,None]*B[:,:-1,:,:] + q[1:,None,None]*phi[1:,:,L,None]*B[:,1:,:,:])/2 * np.diff(q)[:,None,None], axis=1) \
-                + np.sum((q[:-1,None,None]*phi[:-1,L,None,:]*C[:,:-1,:,:] + q[1:,None,None]*phi[1:,L,None,:]*C[:,1:,:,:])/2 * np.diff(q)[:,None,None], axis=1) \
-                + np.sum((q[:-1,None,None]*phi[:-1,L,L,None,None]*D[:,:-1,:,:] + q[1:,None,None]*phi[1:,L,L,None,None]*D[:,1:,:,:])/2 * np.diff(q)[:,None,None], axis=1))
-            for qi in range(M):
-                m[qi,:,:] = np.dot(wTinv[qi],np.dot(mq[qi],wTinv[qi]))
+                m[qi,:,:] = np.dot(wTinv[qi],np.dot(m[qi],wTinv[qi]))
         return ker
