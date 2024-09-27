@@ -29,7 +29,6 @@ def _fsolve_mat (f, m, W, f0, phi0, WS, kernel, M, accuracy, maxiter, *kernel_ar
     lowval = False
     newf = f0.copy()
     #newf = phi0.copy()
-    print(newf)
     while (not converged and iterations < maxiter):
         iterations+=1
         f[0] = newf
@@ -91,7 +90,6 @@ class nonergodicity_parameter (object):
             block_iter = self.maxiter
         if self.model.scalar():
             f0 = self.model.phi0().copy()
-            print(self.f_.shape,f0.shape, self.model.phi.shape)
             for b in range(blocks):
                 df = _fsolve(self.f_, self.m_, self.model.Wq(), f0, self.model.phi0(), self.jit_kernel, self.M, self.accuracy, block_iter, *self.model.kernel_extra_args())
                 if callback is not None:
