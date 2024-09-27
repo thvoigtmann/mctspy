@@ -61,6 +61,7 @@ def _solve_block (istart, iend, h, Aq, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter
                     dPhi[i] = 0.5 * (phi[i-1] + phi[i])
                     dM[i] = 0.5 * (m[i-1] + m[i])
 
+
 @njit
 def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, phi, m, dPhi, dM, M, kernel, maxiter, accuracy, calc_moments, useA, useB, *kernel_args):
 
@@ -210,6 +211,7 @@ class correlator (CorrelatorBase):
             self.motion_type = motion_type
         if self.motion_type == 'brownian':
             self.brownian =  True
+            self.damped = False
         elif self.motion_type == 'newtonian':
             self.brownian = False
             self.damped = False
@@ -327,7 +329,7 @@ class correlator (CorrelatorBase):
         else:
             pre_m = np.ones_like(range(istart,iend),dtype=self.model.dtype)
         if self.brownian:
-            Aq = 0.
+            Aq = None
         else:
             if self.model.scalar():
                 Aq = self.model.Aq()
@@ -339,12 +341,20 @@ class correlator (CorrelatorBase):
             else:
                 Bq = self.model.Bq().reshape(-1,self.dim,self.dim)
         else:
-            Bq = 0.
+            Bq = None
         if self.model.scalar():
+            if Aq is None:
+                Aq = 0.
+            if Bq is None:
+                Bq = 0.
             _solve_block (istart, iend, self.h, Aq, Bq, self.model.Wq(), self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2), pre_m, *self.model.kernel_extra_args())
         else:
             if 'kernel_prefactor' in dir(self.model):
                 raise NotImplementedError
+            if Aq is None:
+                Aq = np.zeros((1,self.dim,self.dim), dtype=self.model.dtype)
+            if Bq is None:
+                Bq = np.zeros((1,self.dim,self.dim), dtype=self.model.dtype)
             _solve_block_mat (istart, iend, self.h, Aq, Bq, self.model.Wq().reshape(-1,self.dim,self.dim), self.phi_.reshape(-1,self.mdimen,self.dim,self.dim), self.m_.reshape(-1,self.mdimen,self.dim,self.dim), self.dPhi_.reshape(-1,self.mdimen,self.dim,self.dim), self.dM_.reshape(-1,self.mdimen,self.dim,self.dim), self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),not self.brownian,(self.damped or self.brownian),*self.model.kernel_extra_args())
 
     # new interface with reconstruction of already solved cases
