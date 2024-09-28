@@ -63,13 +63,23 @@ class f12model (model_base):
 
     Declares a single memory kernel of the form
     :math:`m[f] = v_1 f + v_2 f^2`.
+
+    Parameters
+    ----------
+    v1, v2 : float, float
+        Coupling coefficients of the F12 model.
+    delta : float, default: None
+        Hopping parameter.
     """
-    def __init__ (self, v1, v2):
+    def __init__ (self, v1, v2, delta=None):
         model_base.__init__(self)
         self.v1 = v1
         self.v2 = v2
+        self.delta = delta
     def __len__ (self):
         return 1
+    def hopping (self):
+        return self.delta
     def make_kernel (self):
         """Kernel-factory method.
 
@@ -202,13 +212,26 @@ class sjoegren_model (model_base):
 
     Defines a memory kernel that couples to a given (usually, F12) base
     model, and sets :math:`m^s[f^s] = v_s f f^c` where :math:`f` is taken
-    from the base model."""
-    def __init__ (self, vs, base_model):
+    from the base model.
+
+    Parameters
+    ----------
+    vs : float
+        Coupling parameter of the Sjoegren model.
+    base_model : model_base
+        The model to couple this to, such as a F12 model.
+    deltas : float, default: None
+        Hopping parameter.
+    """
+    def __init__ (self, vs, base_model, deltas=None):
         model_base.__init__(self)
         self.vs = vs
+        self.deltas = deltas
         self.base = base_model
     def __len__ (self):
         return 1
+    def hopping (self):
+        return self.deltas
     def kernel_extra_args (self):
         return [self.base.phi]
     def make_kernel (self):

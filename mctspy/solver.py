@@ -25,13 +25,18 @@ def _decimize (phi, m, dPhi, dM, blocksize):
         di = i+i
         phi[i] = phi[di]
         m[i] = m[di]
+
 @njit
-def _solve_block (istart, iend, h, Aq, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments, pre_m, *kernel_args):
+def _solve_block (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, kernel, maxiter, accuracy, calc_moments, hopping, pre_m, *kernel_args):
 
     for i in range(istart,iend):
         mpre = pre_m[i-istart]
-        A = mpre*dM[1] + Wq + 1.5*Bq / h + 2.0*Aq / (h*h)
-        B = mpre*(-dPhi[1] + phi[0]) / A
+        if not hopping:
+            A = mpre*dM[1] + Wq + 1.5*Bq / h + 2.0*Aq / (h*h)
+            B = mpre*(-dPhi[1] + phi[0]) / A
+        else:
+            A = mpre*(1.+0.5*h*Xq)*dM[1] + Wq + 1.5*Bq / h + 2.0*Aq / (h*h)
+            B = mpre*(-(1+0.5*h*Xq)*dPhi[1] + phi[0]) / A
 
         ibar = i//2
         C = -(m[i-1]*dPhi[1] + phi[i-1]*dM[1])
@@ -41,6 +46,14 @@ def _solve_block (istart, iend, h, Aq, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter
         if (i-ibar > ibar):
             C += (phi[i-ibar] - phi[i-ibar-1]) * dM[k]
         C += m[i-ibar] * phi[ibar]
+        if hopping:
+            Cd = (m[i-1]*dPhi[1] + phi[i-1]*dM[1])
+            for k in range(2,ibar+1):
+                Cd += (m[i-k+1] + m[i-k]) * dPhi[k]
+                Cd += (phi[i-k+1] + phi[i-k]) * dM[k]
+            if (i-ibar > ibar):
+                Cd += (phi[i-ibar] + phi[i-ibar-1]) * dM[k]
+            C += 0.5*h*Xq*Cd
         C = mpre*C + (-2.0*phi[i-1] + 0.5*phi[i-2]) * Bq/h \
                    + (-5.0*phi[i-1] + 4.0*phi[i-2] - 1.0*phi[i-3]) * Aq/(h*h)
         C = C/A
@@ -63,17 +76,23 @@ def _solve_block (istart, iend, h, Aq, Bq, Wq, phi, m, dPhi, dM, kernel, maxiter
 
 
 @njit
-def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, phi, m, dPhi, dM, M, kernel, maxiter, accuracy, calc_moments, useA, useB, *kernel_args):
+def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kernel, maxiter, accuracy, calc_moments, useA, useB, useX, *kernel_args):
 
     Ainv = np.zeros_like(Wq,dtype=phi.dtype)
     B = np.zeros_like(Wq,dtype=phi.dtype)
     C = np.zeros_like(Wq,dtype=phi.dtype)
+    if useX:
+        Cd = np.zeros_like(Wq,dtype=phi.dtype)
 
     Ainv = Wq + dM[1] + Bq*1.5/h + Aq*2.0/h**2
     for q in range(M):
+        if useX:
+            Ainv[q] += dM[1,q] @ Xq[q] * 0.5*h
         Ainv[q] = np.linalg.inv(Ainv[q])
         #Ainv[q] = np.linalg.inv(Wq[q] + dM[1,q] + Bq[q]*1.5/h + Aq[q]*2.0/h**2)
         B[q] = -dPhi[1,q] + phi[0,q]
+        if useX:
+            B[q] -= Xq[q] @ dPhi[1,q] * 0.5*h
 
     for i in range(istart,iend):
         ibar = i//2
@@ -86,6 +105,18 @@ def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, phi, m, dPhi, dM, M, kernel, 
         if (i-ibar > ibar):
             for q in range(M):
                 C[q] += dM[k,q] @ (phi[i-ibar,q] - phi[i-ibar-1,q])
+        if useX:
+            Cd[q] = m[i-1,q] @ Xq[q] @ dPhi[1,q] + dM[1,q] @ Xq[q] @ phi[i-1,q]
+            for k in range(2,ibar+1):
+                for q in range(M):
+                    Cd[q] += (m[i-k+1,q] + m[i-k,q]) @ Xq[q] @ dPhi[k,q] \
+                          + dM[k,q] @ Xq[q] @ (phi[i-k+1,q] + phi[i-k,q])
+            if (i-ibar > ibar):
+                for q in range(M):
+                    Cd[q] += dM[k,q] @ Xq[q] @ (phi[i-ibar,q] + phi[i-ibar-1,q])
+            for q in range(M):
+                C[q] += 0.5*h*Cd[q]
+
         for q in range(M):
             C[q] += m[i-ibar,q] @ phi[ibar,q]
             if useB:
@@ -342,12 +373,16 @@ class correlator (CorrelatorBase):
                 Bq = self.model.Bq().reshape(-1,self.dim,self.dim)
         else:
             Bq = None
+        Xq = self.model.hopping()
+
         if self.model.scalar():
             if Aq is None:
                 Aq = 0.
             if Bq is None:
                 Bq = 0.
-            _solve_block (istart, iend, self.h, Aq, Bq, self.model.Wq(), self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2), pre_m, *self.model.kernel_extra_args())
+            if Xq is None:
+                Xq = 0.
+            _solve_block (istart, iend, self.h, Aq, Bq, self.model.Wq(), Xq, self.phi_, self.m_, self.dPhi_, self.dM_, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2), not (Xq is None), pre_m, *self.model.kernel_extra_args())
         else:
             if 'kernel_prefactor' in dir(self.model):
                 raise NotImplementedError
@@ -355,7 +390,9 @@ class correlator (CorrelatorBase):
                 Aq = np.zeros((1,self.dim,self.dim), dtype=self.model.dtype)
             if Bq is None:
                 Bq = np.zeros((1,self.dim,self.dim), dtype=self.model.dtype)
-            _solve_block_mat (istart, iend, self.h, Aq, Bq, self.model.Wq().reshape(-1,self.dim,self.dim), self.phi_.reshape(-1,self.mdimen,self.dim,self.dim), self.m_.reshape(-1,self.mdimen,self.dim,self.dim), self.dPhi_.reshape(-1,self.mdimen,self.dim,self.dim), self.dM_.reshape(-1,self.mdimen,self.dim,self.dim), self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),not self.brownian,(self.damped or self.brownian),*self.model.kernel_extra_args())
+            if Xq is None:
+                Xq = np.zeros((1,self.dim,self.dim), dtype=self.model.dtype)
+            _solve_block_mat (istart, iend, self.h, Aq, Bq, self.model.Wq().reshape(-1,self.dim,self.dim), Xq, self.phi_.reshape(-1,self.mdimen,self.dim,self.dim), self.m_.reshape(-1,self.mdimen,self.dim,self.dim), self.dPhi_.reshape(-1,self.mdimen,self.dim,self.dim), self.dM_.reshape(-1,self.mdimen,self.dim,self.dim), self.mdimen, self.jit_kernel, self.maxiter, self.accuracy,(istart<self.blocksize//2),not self.brownian,(self.damped or self.brownian),not (Xq is None),*self.model.kernel_extra_args())
 
     # new interface with reconstruction of already solved cases
     # does not call the jitted _solve_block directly because

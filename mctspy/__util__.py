@@ -32,6 +32,8 @@ class model_base (object):
         return 1
     def scalar (self):
         return True
+    def hopping (self):
+        return None
     def phi0 (self):
         return np.ones(len(self))
     def phi0d (self):
