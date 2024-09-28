@@ -24,6 +24,7 @@ class abp_model_2d (model_base):
     def __init__ (self, Sq, q, L=1, D0=1.0, Dr=1.0, v0=0.0):
         model_base.__init__(self)
         self.dtype = np.dtype('complex')
+        self.fixed_motion_type = 'brownian'
         self.rho = Sq.density()
         self.q = q
         self.Sq = Sq
@@ -41,6 +42,12 @@ class abp_model_2d (model_base):
         return self.S
     def scalar (self):
         return False
+    def hopping (self):
+        S = 2*self.L+1
+        res = self.Dr * np.ones((self.M,S,S),dtype=self.dtype) * np.diag(np.ones(S,dtype=self.dtype))
+        #res = self.omega_R (self.L)
+        #res[:,self.L,self.L] = res[:,self.L,self.L] / self.sq
+        return res
     def phi0 (self):
         phi0 = np.ones_like(self.q)[:,None,None] * np.diag(np.ones(self.S))
         phi0[:,self.L,self.L] = self.sq
@@ -136,11 +143,11 @@ class abp_model_2d (model_base):
                 thp = np.power(q[ki]/x[:,None],lr) * np.power((q[qi]/q[ki]-x[:,None])-1j*y[:,None],lr)
                 assert (not np.isnan(thk).any())
                 assert (not np.isnan(thp).any())
+                A[qi,ki,p] = pre * (2*q[qi]**2 * g0unsum(c[p]**2,x,1,minval) \
+                         - 4*q[qi]*q[ki] * g1unsum(c[p]**2,x,1,minval) \
+                         + 2*q[ki]**2 * g2unsum(c[p]**2,x,1,minval) )
                 for l in lr:
                     for ld in lr:
-                        A[qi,ki,p] = pre * (2*q[qi]**2 * g0unsum(c[p]**2,x,1,minval) \
-                                 - 4*q[qi]*q[ki] * g1unsum(c[p]**2,x,1,minval) \
-                                 + 2*q[ki]**2 * g2unsum(c[p]**2,x,1,minval) )
                         B[qi,ki,p,L+l,L+ld] = pre * (2*q[qi]*q[ki] * g1unsum(thp[:,L+ld]*thk[:,L-l]*c[ki]*c[p],x,1,minval) \
                                  - 2*q[ki]**2 * g2unsum(thp[:,L+ld]*thk[:,L-l]*c[ki]*c[p],x,1,minval) )
                         C[qi,ki,p,L+l,L+ld] = pre * (2*q[qi]*q[ki] * g1unsum(thp[:,L-l]*thk[:,L+ld]*c[ki]*c[p],x,1,minval) \
