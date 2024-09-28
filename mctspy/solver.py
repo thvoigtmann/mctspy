@@ -106,7 +106,8 @@ def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kern
             for q in range(M):
                 C[q] += dM[k,q] @ (phi[i-ibar,q] - phi[i-ibar-1,q])
         if useX:
-            Cd[q] = m[i-1,q] @ Xq[q] @ dPhi[1,q] + dM[1,q] @ Xq[q] @ phi[i-1,q]
+            for q in range(M):
+                Cd[q] = m[i-1,q] @ Xq[q] @ dPhi[1,q] + dM[1,q] @ Xq[q] @ phi[i-1,q]
             for k in range(2,ibar+1):
                 for q in range(M):
                     Cd[q] += (m[i-k+1,q] + m[i-k,q]) @ Xq[q] @ dPhi[k,q] \
