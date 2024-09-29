@@ -11,4 +11,6 @@ from .util import CorrelatorStack, exponents, evscan, filon_integrate, filon_cos
 
 from .__util__ import model_base
 
+import mctspy.granular
+
 import mctspy.structurefactors

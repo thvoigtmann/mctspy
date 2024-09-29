@@ -117,6 +117,9 @@ class hssPY (object):
                   - (np.pi*self.alpha * (2./105. + self.phi/150.) \
                      + np.pi*self.beta/60.)*q3[lowq];
         return dcq
+    def contact_value (self):
+        """Return contact value of the RDF."""
+        return 0.5*self.phi * (2 + self.phi) / (1-self.phi)**2
 
 
 class hssPYtagged (object):
