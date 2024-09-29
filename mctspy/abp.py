@@ -44,9 +44,9 @@ class abp_model_2d (model_base):
         return False
     def hopping (self):
         S = 2*self.L+1
-        res = self.Dr * np.ones((self.M,S,S),dtype=self.dtype) * np.diag(np.ones(S,dtype=self.dtype))
-        #res = self.omega_R (self.L)
-        #res[:,self.L,self.L] = res[:,self.L,self.L] / self.sq
+        #res = self.Dr * np.ones((self.M,S,S),dtype=self.dtype) * np.diag(np.ones(S,dtype=self.dtype))
+        res = self.omega_R (self.L)
+        res[:,self.L,self.L] = res[:,self.L,self.L] / self.sq
         return res
     def phi0 (self):
         phi0 = np.ones_like(self.q)[:,None,None] * np.diag(np.ones(self.S))
