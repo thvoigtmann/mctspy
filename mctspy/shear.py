@@ -110,7 +110,6 @@ class isotropically_sheared_model (simple_liquid_model):
         #f[np.isnan(f)]=0.
         # put this for now: it looks like that is what Fuchs/Cates did?
         f = phi
-        print(np.max(f-phi))
         return scipy.integrate.trapezoid(self.q**5/qt * cdbar * cd * \
             Sqbar**2 * f**2 * self.rho * self.dq(), axis=-1) / (60.*np.pi**2)
 

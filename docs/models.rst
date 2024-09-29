@@ -118,9 +118,6 @@ and the isotropic advected wave number
 :math:`k(t)=k\sqrt{1+(\dot\gamma t/\gamma_c)^2}`.
 
 
-.. [Fuchs2009] M. Fuchs and M. E. Cates, J. Rheol. 53, 957 (2009),
-   `DOI:10.1122/1.3119084 <https://doi.org/10.1122/1.3119084>`_
-
 .. autoclass:: mctspy.isotropically_sheared_model
     :members:
     :inherited-members:
@@ -134,7 +131,15 @@ and the isotropic advected wave number
 
     In the current version of the code, we integrate however
     over :math:`\phi_k(t)` instead of the advected one; this seems
-    to match more closely the numerical results shown by Fuchs and Cates?
+    to match more closely the numerical results shown by Fuchs in
+    [Fuchs2010]_.
+
+    .. [Fuchs2009] M. Fuchs and M. E. Cates, J. Rheol. 53, 957 (2009),
+       `DOI:10.1122/1.3119084 <https://doi.org/10.1122/1.3119084>`_
+
+    .. [Fuchs2010] M. Fuchs, Adv. Polym. Sci. 236, 55 (2010),
+       `DOI:10.1007/12_2009_30 <https://doi.org/10.1007/12_2009_30>`_
+
 
 
 Mixtures
