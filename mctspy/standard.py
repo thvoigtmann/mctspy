@@ -18,14 +18,16 @@ class simple_liquid_model (model_base):
     q : array_like
         Wave number grid.
     D0 : float, default: 1.0
-        Short-term diffusion coefficient.
+        Short-term diffusion coefficient, used for Brownian dynamics.
+    vth : float, default: 1.0
+        Thermal velocity, used for Newtonian dynamics.
 
     Notes
     -----
     The wave number grid *must* be regular with step size dq and
     have its first point at dq/2.
     """
-    def __init__ (self, Sq, q, D0=1.0):
+    def __init__ (self, Sq, q, D0=1.0, vth=1.0):
         model_base.__init__(self)
         self.rho = Sq.density()
         self.q = q
@@ -34,10 +36,13 @@ class simple_liquid_model (model_base):
         self.M = q.shape[0]
         self.__init_vertices__()
         self.D0 = D0
+        self.vth = 1.0
     def __len__ (self):
         return self.M
     def Wq (self):
         return self.q*self.q
+    def Aq (self):
+        return self.sq/self.vth**2
     def Bq (self):
         return self.sq/self.D0
     def dq (self):

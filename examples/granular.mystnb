@@ -1,0 +1,125 @@
+---
+jupytext:
+  text_representation:
+    extension: .mystnb
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.16.4
+kernelspec:
+  display_name: Python 3 (ipykernel)
+  language: python
+  name: python3
+---
+
+```{code-cell} ipython3
+import numpy as np
+import matplotlib.pyplot as plt
+```
+
+```{code-cell} ipython3
+from tqdm import tqdm
+```
+
+```{code-cell} ipython3
+import mctspy as mct
+```
+
+```{code-cell} ipython3
+Sq = mct.structurefactors.hssPY(0.548)
+qgrid = np.linspace(0.2,39.8,100)
+```
+
+```{code-cell} ipython3
+model = mct.granular.granular_model(Sq,qgrid,restitution_coeff=0.5)
+```
+
+```{code-cell} ipython3
+nep = mct.nonergodicity_parameter (model = model, maxiter=1500)
+nep.solve()
+```
+
+```{code-cell} ipython3
+plt.plot(nep.model.q, nep.f)
+plt.show()
+```
+
+```{code-cell} ipython3
+import mctspy as mct
+```
+
+```{code-cell} ipython3
+def calc_ev(phi,eps):
+    Sq = mct.structurefactors.hssPY(phi)
+    model = mct.granular.granular_model (Sq, qgrid, restitution_coeff=eps)
+    nep = mct.nonergodicity_parameter (model = model)
+    nep.solve()
+    ev = mct.eigenvalue(nep)
+    ev.solve()
+    return ev
+epsrange = np.linspace(0,1,11)
+phic = []
+evals = []
+for eps in epsrange:
+    print("=== eps = {} ===".format(eps))
+    phis, evs = mct.evscan(0.51,0.59,lambda phi:calc_ev(phi,eps),eps=1e-8)
+    p=np.argmax([ev.eval for ev in evs])
+    phic.append(phis[p])
+    evals.append(evs[p])
+phic = np.array(phic)
+```
+
+Fig. 2 of Kranz/Sperl/Zippelius PRL (2010):
+
+```{code-cell} ipython3
+plt.plot(epsrange,phic)
+plt.show()
+```
+
+```{code-cell} ipython3
+plt.plot(epsrange,[mct.exponents(ev.lam)[0] for ev in evals])
+plt.show()
+```
+
+Fig. 4 of Kranz/Sperl/Zippelius PRL (2010):
+
+```{code-cell} ipython3
+Sq = mct.structurefactors.hssPY(0.545)
+model = mct.granular.granular_model(Sq,qgrid,restitution_coeff=0.5)
+phi = mct.correlator (model = model, store=True)
+```
+
+```{code-cell} ipython3
+Sq0 = mct.structurefactors.hssPY(0.515)
+model0 = mct.simple_liquid_model(Sq0,qgrid)
+phi_bd = mct.correlator (model = model0, motion_type='brownian', store=True)
+phi_nd = mct.correlator (model = model0, motion_type='newtonian', store=True)
+```
+
+```{code-cell} ipython3
+correlators = mct.CorrelatorStack([phi,phi_bd,phi_nd])
+```
+
+```{code-cell} ipython3
+pbar = tqdm(total=phi.blocks+1)
+correlators.solve_all(callback=lambda d,bs2,bs,c: pbar.update(1))
+pbar.close()
+```
+
+```{code-cell} ipython3
+qvals = [4.2]
+qis = np.array([np.nonzero(np.isclose(qgrid,qval)) for qval in qvals],dtype=int).reshape(-1)
+```
+
+```{code-cell} ipython3
+for qi in qis:
+    plt.plot(phi.t, phi.phi[:,qi], label=r'$q = {:.1f}$'.format(qgrid[qi]))
+    plt.plot(phi_bd.t,phi_bd.phi[:,qi],linestyle='dashed')
+    plt.plot(phi_nd.t,phi_nd.phi[:,qi],linestyle='dotted')
+plt.xscale('log')
+plt.legend()
+plt.show()
+```
+
+```{code-cell} ipython3
+
+```
