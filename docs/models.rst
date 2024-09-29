@@ -32,10 +32,22 @@ The evolution equations of simple-liquid models are thus
 
 
 
-
 .. autoclass:: mctspy.simple_liquid_model
     :members:
     :inherited-members:
+
+    For the shear modulus, the expression is
+
+    .. math::
+
+        \frac{G}{kT/\sigma^3}=\frac{\rho}{60\pi^2}\int dk\,
+        k^4 (S_k c'_k)^2 \phi_k^2
+
+    as for example given in [Bergenholtz1999]_.
+
+    .. [Bergenholtz1999] J. Bergenholtz and M. Fuchs,
+       Phys. Rev. E 59, 5706 (1999),
+       `DOI:10.1103/PhysRevE.59.5706 <https://doi.org/10.1103/PhysRevE.59.5706>`_
 
 
 Common Additions to Simple-Liquid Models
@@ -82,6 +94,48 @@ Common Additions to Simple-Liquid Models
     .. [Fuchs1998] M. Fuchs, W. G\ |ouml|\ tze, and M. R. Mayr,
        Phys. Rev. E 58, 3384 (1998),
        `DOI:10.1103/PhysRevE.58.3384 <https://doi.org/10.1103/PhysRevE.58.3384>`_
+
+Isotropically Sheared System
+----------------------------
+
+The "isotropically sheared hard-sphere model" (ISHSM) was introduced
+by Fuchs and Cates [Fuchs2009]_. Its memory kernel is
+
+.. math::
+
+    m_q(t) = \frac1{2N}\sum_{\vec k}V^{(\dot\gamma)}_{\vec q,\vec k}(t)
+    \phi_k(t)\phi_p(t)
+
+with vertices
+
+.. math::
+
+    V^{(\dot\gamma)_{\vec q,\vec k}(t)=\frac{rho^2S_qS_kS_p}{q^4}
+    \left[\vec q\cdot\vec k\,c_{k(t)}+\vec q\cdot\vec p\,c_{p(t)}\right]
+    \left[\vec q\cdot\vec k\,c_k+\vec q\cdot\vec p\,c_p\right]
+
+and the isotropic advected wave number
+:math:`k(t)=k\sqrt{1+(\dot\gamma t/\gamma_c)^2}`.
+
+
+.. [Fuchs2009] M. Fuchs and M. E. Cates, J. Rheol. 53, 957 (2009),
+   `DOI:10.1122/1.3119084 <https://doi.org/10.1122/1.3119084>`_
+
+.. autoclass:: mctspy.isotropically_sheared_model
+    :members:
+    :inherited-members:
+
+    Note that the expression for the stress is [Fuchs2009]_
+
+    .. math::
+
+        \sigma = \frac{kT\dot\gamma}{60\pi^2}\int_0^\infty dt
+        \int dk\frac{k^5c_k'S'_{k(t)}}{k(t)}\phi_{k(t)}^2(t)
+
+    In the current version of the code, we integrate however
+    over :math:`\phi_k(t)` instead of the advected one; this seems
+    to match more closely the numerical results shown by Fuchs and Cates?
+
 
 Mixtures
 --------

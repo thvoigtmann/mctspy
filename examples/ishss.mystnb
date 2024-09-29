@@ -1,0 +1,125 @@
+---
+jupytext:
+  text_representation:
+    extension: .mystnb
+    format_name: myst
+    format_version: 0.13
+    jupytext_version: 1.16.4
+kernelspec:
+  display_name: Python 3 (ipykernel)
+  language: python
+  name: python3
+---
+
+```{code-cell} ipython3
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.integrate
+```
+
+```{code-cell} ipython3
+from tqdm import tqdm
+```
+
+```{code-cell} ipython3
+import mctspy as mct
+```
+
+```{code-cell} ipython3
+Sq = mct.structurefactors.hssPY(0.516)
+qgrid = np.linspace(0.2,39.8,100)
+```
+
+```{code-cell} ipython3
+model = mct.isotropically_sheared_model(Sq,qgrid, gammadot=9.**8*1e-6, gammac=np.sqrt(3.))
+model0 = mct.simple_liquid_model(Sq,qgrid)
+```
+
+```{code-cell} ipython3
+phi = mct.correlator (model = model, store=True)
+phi0 = mct.correlator (model = model0, store=True)
+```
+
+```{code-cell} ipython3
+correlators = mct.CorrelatorStack([phi,phi0])
+pbar = tqdm(total=phi.blocks+1)
+correlators.solve_all(callback=lambda d,bs2,bs,c: pbar.update(1))
+pbar.close()
+```
+
+```{code-cell} ipython3
+qvals = [3.4,7.4,12.2]
+qis = np.array([np.nonzero(np.isclose(qgrid,qval)) for qval in qvals],dtype=int).reshape(-1)
+```
+
+```{code-cell} ipython3
+for qi in qis:
+    plt.plot(phi.t, phi.phi[:,qi], label=r'$q = {:.1f}$'.format(qgrid[qi]))
+    plt.plot(phi0.t, phi0.phi[:,qi], linestyle='dashed')
+plt.xscale('log')
+plt.legend()
+plt.show()
+```
+
+```{code-cell} ipython3
+Gt0 = model0.shear_modulus (phi0.phi)
+```
+
+```{code-cell} ipython3
+Gtt = model.shear_modulus (phi.phi, phi.t)
+```
+
+```{code-cell} ipython3
+def shear(self,phi,t):
+        advec = np.sqrt(1 + self.gammadot*t/self.gammac)
+        qt = self.q * advec[:,None]
+        kt = qt/self.dq()
+        kibar = np.array(np.floor(kt - 0.4999),dtype=int)
+        kibar1 = np.array(np.floor(kt + 0.50001),dtype=int)
+        kibar[kibar>=self.M-1] = self.M-1
+        kibar1[kibar>=self.M-1] = self.M-1
+        kibar_ = kibar.reshape(-1)
+        kibar1_ = kibar1.reshape(-1)
+        kt_ = kt.reshape(-1)
+        cd = self.Sq.dcq_dq(self.q)
+        cdbar = (cd[kibar_] + (cd[kibar1_] - cd[kibar_])*(kt_-kibar_-0.5)).reshape(kt.shape)
+        Sqbar = (self.sq[kibar_] + (self.sq[kibar1_] - self.sq[kibar_])*(kt_-kibar_-0.5)).reshape(kt.shape)
+        f = np.zeros_like(phi)
+        for ti in range(f.shape[0]):
+            f[ti,:] = phi[ti,kibar[ti]] + (phi[ti,kibar1[ti]] - phi[ti,kibar[ti]])*(kt[ti]-kibar[ti]-0.5)
+            #spl = scipy.interpolate.CubicSpline(self.q, phi[ti,:],extrapolate=False)
+            #f[ti,:] = spl(qt[ti])
+        #f[np.isnan(f)]=0.
+        # put this for now: it looks like that is what Fuchs/Cates did?
+        #f = phi
+        #print(np.max(f-phi))
+        return scipy.integrate.trapezoid(self.q**5/qt * cdbar * cd * \
+            Sqbar**2 * f**2 * self.rho * self.dq(), axis=-1) / (60.*np.pi**2)
+Gttalt = shear(model,phi.phi,phi.t)
+```
+
+```{code-cell} ipython3
+plt.plot(phi0.t,Gt0)
+plt.plot(phi.t,Gtt)
+#plt.plot(phi.t,Gttalt)
+plt.xscale('log')
+plt.show()
+```
+
+```{code-cell} ipython3
+st=scipy.integrate.cumulative_trapezoid(Gtt*phi.model.gammadot,x=phi.t,initial=0.)
+```
+
+```{code-cell} ipython3
+plt.plot(phi.t*phi.model.gammadot,st,'.')
+plt.xlim(0,3)
+plt.show()
+```
+
+```{code-cell} ipython3
+np.log10(st[-1])
+```
+
+```{code-cell} ipython3
+
+```

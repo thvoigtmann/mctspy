@@ -3,14 +3,33 @@ import numpy as np
 from numba import njit
 from .__util__ import model_base, void, nparray, np_gradient
 
+import scipy.integrate
+
 def _dq (q):
     return np.diff(q, append=2*q[-1]-q[-2])
 
 class simple_liquid_model (model_base):
+    """The simple-liquid standard model of MCT.
+
+    Parameters
+    ----------
+    Sq : object
+        The static structure factor object.
+    q : array_like
+        Wave number grid.
+    D0 : float, default: 1.0
+        Short-term diffusion coefficient.
+
+    Notes
+    -----
+    The wave number grid *must* be regular with step size dq and
+    have its first point at dq/2.
+    """
     def __init__ (self, Sq, q, D0=1.0):
         model_base.__init__(self)
         self.rho = Sq.density()
         self.q = q
+        self.Sq = Sq
         self.sq, self.cq = Sq.Sq(q)
         self.M = q.shape[0]
         self.__init_vertices__()
@@ -147,6 +166,25 @@ class simple_liquid_model (model_base):
                         mq += a[n,ki] *apre[n]* zqk * dphi[ki] * (1-phi[ki])**2
                 m[qi] = mq * dq[qi]**2 / q[qi]**2
         return dm2
+
+    def shear_modulus (self, phi):
+        r"""Return shear modulus or shear stress, given a solution.
+
+        Parameters
+        ----------
+        phi : array_like
+            Correlator or nonergodicity-parameter values.
+
+        Returns
+        -------
+        G : array_like
+            The shear modulus corresponding to the nonergodicity parameter
+            or the time-dependent shear modulus corresponding to the
+            time-dependent solution.
+        """
+        return scipy.integrate.trapezoid((self.q**4 * self.sq**2 * \
+            self.Sq.dcq_dq(self.q)**2 * self.rho*self.dq()) * \
+            phi**2, axis=-1) / (60*np.pi**2)
 
     def h5save (self, fh):
         grp = fh.create_group("model")
