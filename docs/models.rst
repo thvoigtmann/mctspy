@@ -141,6 +141,28 @@ and the isotropic advected wave number
        `DOI:10.1007/12_2009_30 <https://doi.org/10.1007/12_2009_30>`_
 
 
+Driven Granular Fluids
+----------------------
+
+The MCT equations for driven granular fluids take a form that is very
+similar to that of the simple liquids, but they naturally encode damped
+Newtonian dynamics, and involve a prefactor in front of the memory kernel
+that depends on the coefficient of restitution. The model has been
+presented by Kranz/Sperl/Zippelius [Kranz2010]_.
+
+.. [Kranz2010] W. T. Kranz, M. Sperl, A. Zippelius,
+   Phys. Rev. Lett. 104, 225701 (2010),
+   `DOI:10.1103/PhysRevLett.104.225701 <https://doi.org/10.1103/PhysRevLett.104.225701>`_
+
+
+.. autoclass:: mctspy.granular.granular_model
+    :members:
+    :inherited-members:
+
+    Note that the Enskog damping term requires a contact value for
+    the RDF. It is expected that the structure factor implements a
+    function `contact_value()`, else this value is set to unity.
+
 
 Mixtures
 --------
