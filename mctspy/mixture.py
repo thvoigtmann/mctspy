@@ -104,17 +104,22 @@ class mixture_model (model_base):
                     for g in range(self.S):
                         for d in range(self.S):
                             assert(np.isclose(self.a3[0,qi,a,b,g,d] , q[qi]*self.cq[qi,a,b]*self.cq[qi,g,d] * q[qi]**4))
+                            assert(np.isclose(self.a3[1,qi,a,b,g,d] , q[qi]*self.cq[qi,a,b]*self.cq[qi,g,d] * 2 * q[qi]**2))
                             assert(np.isclose(self.a3[2,qi,a,b,g,d] , q[qi]*self.cq[qi,a,b]*self.cq[qi,g,d]))
             for pi in range(self.M):
                 assert(self.b1[0,qi,pi] == q[pi]/q[qi]**2)
+                assert(self.b1[1,qi,pi] == q[pi]/q[qi]**2 * (q[qi]**2-q[pi]**2))
+                assert(np.isclose(self.b1[2,qi,pi], q[pi]/q[qi]**2 * (q[qi]**2-q[pi]**2)**2))
                 for a in range(self.S):
                     for b in range(self.S):
-                        assert(self.b2[1,qi,pi,a,b] == q[pi]/q[qi]**2 * self.cq[pi,a,b])
                         assert(np.isclose(self.b2[0,qi,pi,a,b],(q[qi]**4-q[pi]**4) * q[pi]/q[qi]**2 * self.cq[pi,a,b]))
+                        assert(self.b2[1,qi,pi,a,b] == q[pi]/q[qi]**2 * self.cq[pi,a,b])
+                        assert(np.isclose(self.b2[2,qi,pi,a,b],q[pi]**3/q[qi]**2 * self.cq[pi,a,b]))
                         for g in range(self.S):
                             for d in range(self.S):
                                 assert(self.b3[0,qi,pi,a,b,g,d] == q[pi]/q[qi]**2 * self.cq[pi,a,b] * self.cq[pi,g,d])
                                 assert(np.isclose(self.b3[1,qi,pi,a,b,g,d] , (q[qi]**2 + q[pi]**2) * q[pi]/q[qi]**2 * self.cq[pi,a,b] * self.cq[pi,g,d]))
+                                assert(np.isclose(self.b3[2,qi,pi,a,b,g,d] , (q[qi]**2 + q[pi]**2)**2 * q[pi]/q[qi]**2 * self.cq[pi,a,b] * self.cq[pi,g,d]))
     def make_kernel (self):
         a1, a2, a3 = self.a1, self.a2, self.a3
         b1, b2, b3 = self.b1, self.b2, self.b3
@@ -163,3 +168,146 @@ class mixture_model (model_base):
                         mq *= 2.0
                         m[qi,a,b] = mq * pre / q[qi]
         return ker
+    def make_dm (self):
+        a1, a2, a3 = self.a1, self.a2, self.a3
+        b1, b2, b3 = self.b1, self.b2, self.b3
+        M, S = self.M, self.S
+        sr = self.sqrtrho
+        q = self.q
+        dq = self.dq()
+        pre = self.pre
+        @njit
+        def dm(m, f, h):
+            for qi in range(M):
+                for a in range(S):
+                    for b in range(S):
+                        res = 0.0
+                        for n in range(3):
+                            pi, ki = qi, 0
+                            zqk1 = b1[n,qi,pi] * f[pi,a,b]
+                            zqk2, zqk3, zqk4 = 0.0, 0.0, 0.0
+                            for g in range(S):
+                                zqk2 += b2[n,qi,pi,b,g] * f[pi,a,g] * sr[g]
+                                zqk3 += b2[n,qi,pi,a,g] * f[pi,b,g] * sr[g]
+                                for d in range(S):
+                                    zqk4 += b3[n,qi,pi,a,g,b,d] \
+                                        * f[pi,g,d] * sr[g]*sr[d]
+                            res += a1[n,ki] * zqk4 * h[ki,a,b]
+                            for g in range(S):
+                                res += a2[n,ki,a,g] * zqk2 * h[ki,b,g] * sr[g]
+                                res += a2[n,ki,b,g] * zqk3 * h[ki,a,g] * sr[g]
+                                for d in range(S):
+                                    res += a3[n,ki,a,g,b,d] * zqk1 \
+                                        * h[ki,g,d] * sr[g]*sr[d]
+                            for ki in range(1, M):
+                                if ki <= qi:
+                                    pi = qi - ki
+                                    sgn = 1
+                                else:
+                                    pi = ki - qi - 1
+                                    sgn = -1
+                                zqk1 += sgn*b1[n,qi,pi] * f[pi,a,b]
+                                for g in range(S):
+                                    zqk2 += sgn*b2[n,qi,pi,b,g]*f[pi,a,g]*sr[g]
+                                    zqk3 += sgn*b2[n,qi,pi,a,g]*f[pi,b,g]*sr[g]
+                                    for d in range(S):
+                                        zqk4 += sgn*b3[n,qi,pi,a,g,b,d] \
+                                            * f[pi,g,d] * sr[g]*sr[d]
+                                pi = qi + ki
+                                if pi < M:
+                                    zqk1 += b1[n,qi,pi] * f[pi,a,b]
+                                    for g in range(S):
+                                        zqk2 += b2[n,qi,pi,b,g]*f[pi,a,g]*sr[g]
+                                        zqk3 += b2[n,qi,pi,a,g]*f[pi,b,g]*sr[g]
+                                        for d in range(S):
+                                            zqk4 += b3[n,qi,pi,a,g,b,d] \
+                                                * f[pi,g,d] * sr[g]*sr[d]
+                                res += a1[n,ki] * zqk4 * h[ki,a,b]
+                                for g in range(S):
+                                    res += a2[n,ki,a,g]*zqk2*h[ki,b,g]*sr[g]
+                                    res += a2[n,ki,b,g]*zqk3*h[ki,a,g]*sr[g]
+                                    for d in range(S):
+                                        res += a3[n,ki,a,g,b,d] * zqk1 \
+                                            * h[ki,g,d] * sr[g]*sr[d]
+                        res *= 2.0
+                        m[qi,a,b] = res * pre / q[qi]**3
+        return dm
+
+    def make_dmhat (self):
+        a1, a2, a3 = self.a1, self.a2, self.a3
+        b1, b2, b3 = self.b1, self.b2, self.b3
+        M, S = self.M, self.S
+        sr = self.sqrtrho
+        q = self.q
+        dq = self.dq()
+        pre = self.pre
+        @njit
+        def dmhat(m, f, h):
+            zqp1 = np.zeros((S,S))
+            zqp2 = np.zeros(S)
+            zqp3 = np.zeros(S)
+            for ki in range(M):
+                for a in range(S):
+                    for b in range(S):
+                        res = 0.0
+                        for n in range(3):
+                            qi, pi = 0, ki
+                            zqp4 = 0.0
+                            for g in range(S):
+                                zqp2[g],zqp3[g] = 0.0, 0.0
+                                for d in range(S):
+                                    zqp1[g,d] = a1[n,pi] * f[pi,g,d]
+                                    zqp2[g] += a2[n,pi,a,d] * f[pi,d,g] * sr[d]
+                                    zqp3[g] += a2[n,pi,b,d] * f[pi,g,d] * sr[d]
+                                    zqp4+=a3[n,pi,a,g,b,d]*f[pi,g,d]*sr[g]*sr[d]
+                            tmp = b1[n,qi,ki] * h[qi,a,b] * zqp4
+                            for g in range(S):
+                                tmp += b2[n,qi,ki,g,b] * h[qi,a,g] \
+                                    * zqp2[g] * sr[b]
+                                tmp += b2[n,qi,ki,g,a] * h[qi,g,b] \
+                                    * zqp3[g] * sr[a]
+                                for d in range(S):
+                                    tmp += b3[n,qi,ki,g,a,d,b] \
+                                        * zqp1[g,d] * h[qi,g,d] * sr[a]*sr[b]
+                            res += tmp / q[qi]**3
+                            for qi in range(1,M):
+                                if qi <= ki:
+                                    pi = ki - qi
+                                    sgn = 1
+                                else:
+                                    pi = qi - ki - 1
+                                    sgn = -1
+                                for g in range(S):
+                                    for d in range(S):
+                                        zqp1[g,d] += sgn*a1[n,pi] * f[pi,g,d]
+                                        zqp2[g] += sgn*a2[n,pi,a,d]*f[pi,d,g]*sr[d]
+                                        zqp3[g] += sgn*a2[n,pi,b,d]*f[pi,g,d]*sr[d]
+                                        zqp4 += sgn*a3[n,pi,a,g,b,d]*f[pi,g,d]*sr[g]*sr[d]
+                                pi = qi + ki
+                                if pi < M:
+                                    for g in range(S):
+                                        for d in range(S):
+                                            zqp1[g,d] += a1[n,pi] * f[pi,g,d]
+                                            zqp2[g] += a2[n,pi,a,d]*f[pi,d,g]*sr[d]
+                                            zqp3[g] += a2[n,pi,b,d]*f[pi,g,d]*sr[d]
+                                            zqp4 += a3[n,pi,a,g,b,d]*f[pi,g,d]*sr[g]*sr[d]
+                                tmp = b1[n,qi,ki] * h[qi,a,b] * zqp4
+                                for g in range(S):
+                                    tmp += b2[n,qi,ki,g,b] * h[qi,a,g] \
+                                        * zqp2[g] * sr[b]
+                                    tmp += b2[n,qi,ki,g,a] * h[qi,g,b] \
+                                        * zqp3[g] * sr[a]
+                                    for d in range(S):
+                                        tmp += b3[n,qi,ki,g,a,d,b] \
+                                            * zqp1[g,d] * h[qi,g,d] *sr[a]*sr[b]
+                                res += tmp / q[qi]**3
+                        m[ki,a,b] = 2.0 * res * pre
+        return dmhat
+
+    def make_dm2 (self):
+        @njit
+        def dm2 (m, f, h):
+            for qi in range(M):
+                for a in range(S):
+                    for b in range(S):
+                        res = 0.0

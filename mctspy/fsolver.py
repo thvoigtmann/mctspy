@@ -18,9 +18,9 @@ def _fsolve (f, m, W, f0, phi0, kernel, M, accuracy, maxiter, *kernel_args):
             converged = True
             #f[0] = newf
         #if not iterations%100: print("iter",iterations,np.mean(np.abs(newf-f[0])))
-    df = np.mean(np.abs(newf-f[0]))
+    #df = np.mean(np.abs(newf-f[0]))
     f[0] = newf
-    return df
+    return converged
 
 @njit
 def _fsolve_mat (f, m, W, f0, phi0, WS, kernel, M, accuracy, maxiter, *kernel_args):
@@ -45,9 +45,9 @@ def _fsolve_mat (f, m, W, f0, phi0, WS, kernel, M, accuracy, maxiter, *kernel_ar
         if np.isclose (newf.reshape(-1), 0.0, rtol=0.0, atol=10*accuracy).all():
             # suspect liquid solution
             lowval = True
-    df = np.mean(np.abs(newf-f[0]))
+    #df = np.mean(np.abs(newf-f[0]))
     f[0] = newf
-    return df
+    return converged
 
 class nonergodicity_parameter (object):
     """Solver for the nonergodicity parameter of a simple liquid
@@ -91,9 +91,10 @@ class nonergodicity_parameter (object):
         if self.model.scalar():
             f0 = self.model.phi0().copy()
             for b in range(blocks):
-                df = _fsolve(self.f_, self.m_, self.model.Wq(), f0, self.model.phi0(), self.jit_kernel, self.M, self.accuracy, block_iter, *self.model.kernel_extra_args())
+                converged = _fsolve(self.f_, self.m_, self.model.Wq(), f0, self.model.phi0(), self.jit_kernel, self.M, self.accuracy, block_iter, *self.model.kernel_extra_args())
                 if callback is not None:
-                    callback(block_iter*(b+1),df)
+                    callback(block_iter*(b+1),self)
+                if converged: break
                 if b < blocks-1:
                     f0 = self.f_[0]
             self.f = self.f_[0]
@@ -101,9 +102,10 @@ class nonergodicity_parameter (object):
         else:
             f0 = self.model.phi0()
             for b in range(blocks):
-                df = _fsolve_mat(self.f_.reshape(1,-1,self.dim,self.dim), self.m_.reshape(1,-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), f0.reshape(-1,self.dim,self.dim), self.model.phi0().reshape(-1,self.dim,self.dim), self.model.WqSq().reshape(-1,self.dim,self.dim), self.jit_kernel, self.M, self.accuracy, block_iter, *self.model.kernel_extra_args())
+                converged = _fsolve_mat(self.f_.reshape(1,-1,self.dim,self.dim), self.m_.reshape(1,-1,self.dim,self.dim), self.model.Wq().reshape(-1,self.dim,self.dim), f0.reshape(-1,self.dim,self.dim), self.model.phi0().reshape(-1,self.dim,self.dim), self.model.WqSq().reshape(-1,self.dim,self.dim), self.jit_kernel, self.M, self.accuracy, block_iter, *self.model.kernel_extra_args())
                 if callback is not None:
-                    callback(block_iter*(b+1),df)
+                    callback(block_iter*(b+1),self)
+                if converged: break
                 if b < blocks-1:
                     f0 = self.f_[0]
             self.f = self.f_[0].reshape(-1,self.dim,self.dim)
@@ -124,8 +126,27 @@ def _esolve(e, dm, f, M, maxiter, accuracy):
         if np.isclose (newe, e, rtol=accuracy, atol=0.0).all():
             converged = True
             e[:] = newe
-            eval_ = norm
-    return eval_
+    return norm
+
+@njit
+def _esolve_mat(e, dm, f, phi0, M, maxiter, accuracy):
+    iterations = 0
+    converged = False
+    newe = phi0.copy()
+    S_F = phi0 - f
+    while (not converged and iterations < maxiter):
+        iterations+=1
+        e[:] = newe
+        dm(newe,f,e)
+        for q in range(M):
+            newe[q] = S_F[q] @ newe[q] @ S_F[q]
+        norm = np.sqrt(np.dot(newe.reshape(-1),newe.reshape(-1)))
+        if norm>1e-10: newe = newe/norm
+        if np.isclose (newe.reshape(-1), e.reshape(-1),
+                       rtol=accuracy, atol=0.0).all():
+            converged = True
+            e[:] = newe
+    return norm
 
 @njit
 def _ehatsolve(ehat, dmhat, f, M, maxiter, accuracy):
@@ -140,8 +161,28 @@ def _ehatsolve(ehat, dmhat, f, M, maxiter, accuracy):
         if np.isclose (newehat,ehat,rtol=accuracy,atol=0.0).all():
             converged = True
             ehat[:] = newehat
-            eval2_ = norm
-    return eval2_
+    return norm
+
+@njit
+def _ehatsolve_mat(ehat, dmhat, f, phi0, M, maxiter, accuracy):
+    iterations = 0
+    converged = False
+    newehat = phi0.copy()
+    S_F = phi0 - f
+    while (not converged and iterations < maxiter):
+        iterations+=1
+        ehat[:] = newehat
+        for q in range(M):
+            ehat[q] = S_F[q] @ ehat[q] @ S_F[q]
+        dmhat(newehat,f,ehat)
+        norm = np.sqrt(np.dot(newehat.reshape(-1),newehat.reshape(-1)))
+        if norm>1e-10: newehat = newehat/norm
+        if np.isclose(newehat.reshape(-1),ehat.reshape(-1),
+                      rtol=accuracy, atol=0.0).all():
+            converged = True
+            ehat[:] = newehat
+    return norm
+
 
 class eigenvalue (object):
     """Critical eigenvalue solver for a simple liquid.
@@ -162,22 +203,40 @@ class eigenvalue (object):
         This calculates the right- and left critical eigenvector, the
         corresponding eigenvalues, and the exponent parameter.
         """
-        f = self.nep.f_[0]
         model = self.nep.model
-        self.e = np.zeros(len(model),dtype=model.dtype)
-        self.ehat = np.zeros(len(model),dtype=model.dtype)
-        self.eval = _esolve(self.e, self.dm, f, len(model), self.maxiter, self.accuracy)
-        self.eval2 = _ehatsolve(self.ehat, self.dmhat, f, len(model), self.maxiter, self.accuracy)
+        dim = model.matrix_dimension()
+        if model.scalar():
+            f = self.nep.f_[0]
+            self.e = np.zeros(len(model)*dim**2,dtype=model.dtype)
+            self.ehat = np.zeros(len(model)*dim**2,dtype=model.dtype)
+            self.eval = _esolve(self.e, self.dm, f, len(model), self.maxiter, self.accuracy)
+            self.eval2 = _ehatsolve(self.ehat, self.dmhat, f, len(model), self.maxiter, self.accuracy)
+        else:
+            f = self.nep.f_[0].reshape(-1,dim,dim)
+            self.e = np.zeros((len(model),dim,dim),dtype=model.dtype)
+            self.ehat = np.zeros((len(model),dim,dim),dtype=model.dtype)
+            phi0 = model.phi0()
+            self.eval = _esolve_mat(self.e, self.dm, f, phi0.reshape(-1,dim,dim), len(model), self.maxiter, self.accuracy)
+            self.eval2 = _ehatsolve_mat(self.ehat, self.dmhat, f, phi0.reshape(-1,dim,dim), len(model), self.maxiter, self.accuracy)
+
         if self.eval > 0:
             dq = model.dq()
-            nl = np.dot(dq * self.ehat, self.e)
-            nr = np.dot(dq * self.ehat, self.e*self.e * (1-f))
+            if model.scalar():
+                nl = np.dot(dq * self.ehat, self.e)
+                nr = np.dot(dq * self.ehat, self.e*self.e * (1-f))
+            else:
+                S_F = phi0 - f
+                S_F_inv = np.linalg.inv(S_F)
+                nl = np.einsum('i,iab,iab', dq, self.ehat, self.e)
+                nr = np.einsum('i,iab,iak,ikl,ilb', dq, self.ehat,
+                               self.e, S_F_inv, self.e)
             self.e = self.e * nl/nr
             self.ehat = self.ehat * nr/(nl*nl)
             #self.lam = np.dot(self.ehat, (1-f)*self.dm2(f,self.e)*(1-f))
-            C = np.zeros(len(model))
-            self.dm2(C,f,self.e)
-            self.lam = np.dot(dq * self.ehat, C)
+            if model.scalar():
+                C = np.zeros(len(model))
+                self.dm2(C,f,self.e)
+                self.lam = np.dot(dq * self.ehat, C)
         else:
             self.lam = 0.0
 
