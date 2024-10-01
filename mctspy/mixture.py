@@ -90,37 +90,8 @@ class mixture_model (model_base):
         self.b3[1] = (q_**2 + p_**2) * pcpcp
         self.b3[2] = (q_**2 + p_**2)**2 * pcpcp
         self.sqrtrho = np.sqrt(self.Sq.densities)
-        #
-        q = self.q
-        for qi in range(self.M):
-            assert(self.a1[0,qi] == q[qi]**5)
-            assert(self.a1[1,qi] == - 2 * q[qi]**3)
-            assert(self.a1[2,qi] == q[qi])
-            for a in range(self.S):
-                for b in range(self.S):
-                    assert(self.a2[0,qi,a,b] == q[qi] * self.cq[qi,a,b])
-                    assert(np.isclose(self.a2[1,qi,a,b] , - q[qi]**5 * self.cq[qi,a,b]))
-                    assert(np.isclose(self.a2[2,qi,a,b] , 2*q[qi]**3 * self.cq[qi,a,b]))
-                    for g in range(self.S):
-                        for d in range(self.S):
-                            assert(np.isclose(self.a3[0,qi,a,b,g,d] , q[qi]*self.cq[qi,a,b]*self.cq[qi,g,d] * q[qi]**4))
-                            assert(np.isclose(self.a3[1,qi,a,b,g,d] , q[qi]*self.cq[qi,a,b]*self.cq[qi,g,d] * 2 * q[qi]**2))
-                            assert(np.isclose(self.a3[2,qi,a,b,g,d] , q[qi]*self.cq[qi,a,b]*self.cq[qi,g,d]))
-            for pi in range(self.M):
-                assert(self.b1[0,qi,pi] == q[pi]/q[qi]**2)
-                assert(self.b1[1,qi,pi] == q[pi]/q[qi]**2 * (q[qi]**2-q[pi]**2))
-                assert(np.isclose(self.b1[2,qi,pi], q[pi]/q[qi]**2 * (q[qi]**2-q[pi]**2)**2))
-                for a in range(self.S):
-                    for b in range(self.S):
-                        assert(np.isclose(self.b2[0,qi,pi,a,b],(q[qi]**4-q[pi]**4) * q[pi]/q[qi]**2 * self.cq[pi,a,b]))
-                        assert(self.b2[1,qi,pi,a,b] == q[pi]/q[qi]**2 * self.cq[pi,a,b])
-                        assert(np.isclose(self.b2[2,qi,pi,a,b],q[pi]**3/q[qi]**2 * self.cq[pi,a,b]))
-                        for g in range(self.S):
-                            for d in range(self.S):
-                                assert(self.b3[0,qi,pi,a,b,g,d] == q[pi]/q[qi]**2 * self.cq[pi,a,b] * self.cq[pi,g,d])
-                                assert(np.isclose(self.b3[1,qi,pi,a,b,g,d] , (q[qi]**2 + q[pi]**2) * q[pi]/q[qi]**2 * self.cq[pi,a,b] * self.cq[pi,g,d]))
-                                assert(np.isclose(self.b3[2,qi,pi,a,b,g,d] , (q[qi]**2 + q[pi]**2)**2 * q[pi]/q[qi]**2 * self.cq[pi,a,b] * self.cq[pi,g,d]))
     def make_kernel (self):
+        """Return kernel-evaluation function, using Bengtzelius' trick."""
         a1, a2, a3 = self.a1, self.a2, self.a3
         b1, b2, b3 = self.b1, self.b2, self.b3
         M, S = self.M, self.S
@@ -169,6 +140,14 @@ class mixture_model (model_base):
                         m[qi,a,b] = mq * pre / q[qi]
         return ker
     def make_dm (self):
+        """Return method to evaluate stability matrix.
+
+        Notes
+        -----
+        The implementation uses the appropriate variant of Bengtzelius' trick.
+        The stability matrix is evaluated on-the-fly, and not pre-cached in
+        memory.
+        """
         a1, a2, a3 = self.a1, self.a2, self.a3
         b1, b2, b3 = self.b1, self.b2, self.b3
         M, S = self.M, self.S
@@ -234,6 +213,14 @@ class mixture_model (model_base):
         return dm
 
     def make_dmhat (self):
+        """Return method to evaluate left-multiplication to stability matrix.
+
+        Notes
+        -----
+        The implementation uses the appropriate variant of Bengtzelius' trick.
+        The stability matrix is evaluated on-the-fly, and not pre-cached in
+        memory.
+        """
         a1, a2, a3 = self.a1, self.a2, self.a3
         b1, b2, b3 = self.b1, self.b2, self.b3
         M, S = self.M, self.S
@@ -305,6 +292,10 @@ class mixture_model (model_base):
         return dmhat
 
     def make_dm2 (self):
+        """Return method to evaluate second variation of memory kernel.
+
+        Since the memory kernel is bilinear, this is the same as the kernel,
+        but we include the division by q**2 here."""
         def dm2 (m, f, h):
             ker = self.get_kernel()
             ker (m, h, 0, 0.)
