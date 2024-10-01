@@ -169,12 +169,13 @@ def _ehatsolve_mat(ehat, dmhat, f, phi0, M, maxiter, accuracy):
     converged = False
     newehat = phi0.copy()
     S_F = phi0 - f
+    tmp = np.zeros_like(ehat)
     while (not converged and iterations < maxiter):
         iterations+=1
         ehat[:] = newehat
         for q in range(M):
-            ehat[q] = S_F[q] @ ehat[q] @ S_F[q]
-        dmhat(newehat,f,ehat)
+            tmp[q] = S_F[q] @ ehat[q] @ S_F[q]
+        dmhat(newehat,f,tmp)
         norm = np.sqrt(np.dot(newehat.reshape(-1),newehat.reshape(-1)))
         if norm>1e-10: newehat = newehat/norm
         if np.isclose(newehat.reshape(-1),ehat.reshape(-1),
@@ -233,10 +234,13 @@ class eigenvalue (object):
             self.e = self.e * nl/nr
             self.ehat = self.ehat * nr/(nl*nl)
             #self.lam = np.dot(self.ehat, (1-f)*self.dm2(f,self.e)*(1-f))
+            L = np.zeros_like(self.e)
+            self.dm2(L,f,self.e)
             if model.scalar():
-                C = np.zeros(len(model))
-                self.dm2(C,f,self.e)
-                self.lam = np.dot(dq * self.ehat, C)
+                self.lam = np.dot(dq * self.ehat, L)
+            else:
+                self.lam = np.einsum('i,iab,iak,ikl,ilb',dq,self.ehat,
+                                     S_F, L, S_F)
         else:
             self.lam = 0.0
 

@@ -305,9 +305,8 @@ class mixture_model (model_base):
         return dmhat
 
     def make_dm2 (self):
-        @njit
         def dm2 (m, f, h):
-            for qi in range(M):
-                for a in range(S):
-                    for b in range(S):
-                        res = 0.0
+            ker = self.get_kernel()
+            ker (m, h, 0, 0.)
+            m[:] = m/self.q[:,None,None]**2
+        return dm2
