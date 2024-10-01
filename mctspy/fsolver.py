@@ -50,9 +50,11 @@ def _fsolve_mat (f, m, W, f0, phi0, WS, kernel, M, accuracy, maxiter, *kernel_ar
     return converged
 
 class nonergodicity_parameter (object):
-    """Solver for the nonergodicity parameter of a simple liquid
+    """Solver for the nonergodicity parameter.
 
     This implements a robust iteration scheme to solve for the NEP.
+    It works with the standard "simple-liquid" model of MCT, as well as
+    with the matrix-valued models.
 
     Parameters
     ----------
@@ -187,6 +189,14 @@ def _ehatsolve_mat(ehat, dmhat, f, phi0, M, maxiter, accuracy):
 
 class eigenvalue (object):
     """Critical eigenvalue solver for a simple liquid.
+
+    This implements iteration schemes to evaluate the right and left
+    eigenvectors of the MCT stability matrix, as well as the exponent
+    parameter lambda.
+
+    It works with the standard "simple-liquid" model of MCT, as well as
+    with the matrix-valued models. The latter use a somewhat different
+    normalization convention.
     """
     def __init__ (self, nep, accuracy=1e-12, maxiter=1000000):
         self.nep = nep

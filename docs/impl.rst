@@ -222,3 +222,81 @@ all unit vectors,
 
 The stencil is currently only implemented for one-, two-, and
 three-dimensional lattices.
+
+
+Matrix-Valued Models
+--------------------
+
+The conventions for matrix-valued models follow those explained in detail
+in [Voigtmann2003phd]_ for the MCT for mixtures. Essentially, nothing is
+normalized to the static structure factors.
+
+Critical amplitudes
+^^^^^^^^^^^^^^^^^^^
+
+In :py:func:`mctspy.mixture_model.make_dm` we implement
+
+.. math::
+
+    C_{\alpha\beta,q}[\boldsymbol H]=\frac{(\Delta q)^2}{32\pi^2q^5}
+    \sum_{kp}\sum_{\alpha'\alpha''\beta'\beta''}
+    kp\hat V_{\alpha\alpha'\alpha''}(q,k,p)
+    \hat V_{\beta\beta'\beta''}(q,k,p)
+    H_{\alpha'\beta'}(k)F_{\alpha''\beta''}(p)
+
+The corresponding left-eigenvector uses the implementation in
+:py:func:`mctspy.mixture_model.make_dmhat`,
+
+.. math::
+
+    \frac{(\Delta q)^2}{32\pi^2q^5}
+    \sum_{qp}\sum_{\alpha\alpha''\beta\beta''}
+    kp\hat V_{\alpha\alpha'\alpha''}(q,k,p)
+    \hat V_{\beta\beta'\beta''}(q,k,p)
+    \hat H_{\alpha\beta}(q)F_{\alpha''\beta''}(p)
+
+This works together with the implementation of the eigenvalue solver for
+matrices in :py:func:`mctspy.eigenvalue.solve`. There, we solve the
+eigenvalue equation by iterating
+
+.. math::
+
+    \boldsymbol H^{(n+1)}=2(\boldsymbol S-\boldsymbol F)
+    \boldsymbol M[\boldsymbol F,\boldsymbol H^{(n)}]
+    (\boldsymbol S-\boldsymbol F)
+
+where :math:`2\boldsymbol M[\boldsymbol F,\boldsymbol H]` is what needs
+to be returned by the function returned by
+:py:func:`mctspy.mixture_model.make_dm`.
+
+Normalization of the matrix-valued eigenvectors follows the convention
+
+.. math::
+
+    \begin{align} \left(\hat{\boldsymbol H}_q,
+    \boldsymbol H_q(\boldsymbol S_q-\boldsymbol F_q)^{-1}\boldsymbol H_q
+    \right) &=1 \\
+    \left(\hat{\boldsymbol H}_q,\boldsymbol H_q\right)&=1
+    \end{align}
+
+This implies that the comparison to the eigenvectors of the one-component
+model should be done according to :math:`e_q(1-f^c_q)^2 = H_q/S_q` and
+:math:`\hat e_q/(1-f^c_q)^2 = \hat H_q/S_q`.
+
+With this normalization, the exponent parameter is given by
+
+.. math::
+
+    \lambda = \left(\hat{\boldsymbol H}_q,
+    (\boldsymbol S_q-\boldsymbol F_q)\boldsymbol M_q[\boldsymbol H]
+    (\boldsymbol S_q-\boldsymbol F_q)\right)
+
+where for a bi-linear memory kernel, the same expression is valid for the
+second variation as for the kernel itself (but note that we need to
+take care of dividing by :math:`q^2` here since our implementation of the
+memory kernel implicitly multiplies by that factor).
+
+
+
+.. [Voigtmann2003phd] Th. Voigtmann, PhD thesis, TU Munich (2003),
+   https://mediatum.ub.tum.de/603008
