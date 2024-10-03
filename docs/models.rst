@@ -515,6 +515,31 @@ schematic models.
     two strain reduction factors, one given by :math:`\boldsymbol B_{t,t'}`,
     and one given by :math:`\boldsymbol B_{t,0}`.
 
+    The :py:func:`mctspy.f12gammadot_tensorial_model.shear_modulus` function
+    implements both an "upper-convected" and a "lower-convected" integral
+    for the stress tensor. The standard variant is the UC model,
+
+    .. math::
+
+        \sigma(t)=\int_0^tdt'\,[-\partial_{t'}B_{tt'}]\phi(t-t')^2
+
+    whilte the LC model is given by
+
+    .. math::
+
+        \sigma(t)=\int_0^tdt'\,[-\partial_tB^{-1}_{tt'}]\phi(t-t')^2
+
+    The derivatives of the Finger tensor and its inverse are implemented
+    through the formulas (valid in homogeneous flow),
+
+    .. math::
+
+        \begin{align}
+        \partial_tB_{tt'}&=\kappa_t\cdot B_{tt'}+B_{tt'}\cdot\kappa_t^T\\
+        -\partial_tB^{-1}_{tt'}&=\kappa_t^T\cdot B^{-1}_{tt'}
+                                +B^{-1}_{tt'}\cdot\kappa_t
+        \end{align}
+
 
     .. [Brader2009] J. M. Brader, T. Voigtmann, M. Fuchs, R. G. Larson,
        and M. E. Cates, Proc. Natl. Acad. Sci. (USA) 106, 15186 (2009),

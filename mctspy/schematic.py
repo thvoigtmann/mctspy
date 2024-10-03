@@ -205,6 +205,35 @@ class f12gammadot_tensorial_model (f12gammadot_model):
             return np.array([self.hhat(t) for t in trange])
         else:
             return np.ones_like(trange)
+    def finger (self, t):
+        """Return the Finger tensor for time t."""
+        gt = self.gammadot*t
+        F = la.expm(self.kappa * gt)
+        return np.dot(F,F.T)
+    def dB (self, t):
+        """Return derivative of the Finger tensor."""
+        B = self.finger(t)
+        return self.gammadot * (self.kappa @ B + B @ self.kappa.T)
+    def dBinv (self, t):
+        """Return derivative of the inverse Finger tensor."""
+        Binv = la.inv(self.finger(t))
+        return -self.gammadot * (self.kappa.T @ Binv + Binv @ self.kappa)
+    def shear_modulus (self, phi, t, lc=False):
+        """Return shear modulus including Finger-tensor factor.
+
+        Parameters
+        ----------
+        phi, t : array_like
+            Solution array as set by the solver.
+        lc : bool, default: False
+            If True, calculate a lower-convected variant of the integral,
+            default is to use upper-convected version.
+        """
+        if not lc:
+            dB_ = np.array([self.dB(td) for td in t]).reshape(-1,3,3)
+        else:
+            dB_ = np.array([-self.dBinv(td) for td in t]).reshape(-1,3,3)
+        return dB_ * phi[:,0,None,None]**2
 
 
 class sjoegren_model (model_base):

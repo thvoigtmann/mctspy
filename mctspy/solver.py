@@ -469,6 +469,26 @@ class correlator (CorrelatorBase):
                 self.phi_[N2:,:] = self.phi[d*N2+N2:d*N2+N,:].reshape(N2,self.mdimen*self.dim**2)
                 self.m_[N2:,:] = self.m[d*N2+N2:d*N2+N,:].reshape(N2,self.mdimen*self.dim**2)
 
+    def shear_modulus (self, **kwargs):
+        """Return the dynamical shear modulus evaluated from the solution.
+
+        If the solutions have been calculated and stored, and the model
+        defines a `shear_modulus` method, call this.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            Optional model-dependent arguments.
+
+        Returns
+        -------
+        Gt : array_like
+            The shear modulus such that integration over time results in
+            the stress (tensor).
+        """
+        if self.store and self.solved>0 and 'shear_modulus' in dir(self.model):
+            return self.model.shear_modulus(self.phi, self.t, **kwargs)
+
     def save (self, file):
         """Save the correlator data to the given file.
 

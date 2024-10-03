@@ -172,13 +172,15 @@ class simple_liquid_model (model_base):
                 m[qi] = mq * dq[qi]**2 / q[qi]**2
         return dm2
 
-    def shear_modulus (self, phi):
+    def shear_modulus (self, phi, t):
         r"""Return shear modulus or shear stress, given a solution.
 
         Parameters
         ----------
         phi : array_like
             Correlator or nonergodicity-parameter values.
+        t : array_like
+            Time points for the integral; not needed in this implementation.
 
         Returns
         -------
