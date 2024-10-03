@@ -231,6 +231,96 @@ The conventions for matrix-valued models follow those explained in detail
 in [Voigtmann2003phd]_ for the MCT for mixtures. Essentially, nothing is
 normalized to the static structure factors.
 
+Bengtzelius trick
+^^^^^^^^^^^^^^^^^
+
+For the memory-kernel integration in the standard mixture model
+:py:class:`mctspy.mixture_model`, we use an extension of the Bengtzelius
+trick. We have
+
+    .. math::
+
+        \begin{align}
+        \hat M_{q,\alpha\beta}[f,g]&=\nu
+        \sum_{n=1}^3\Big[\phantom+\,
+        \sum_{\alpha'\beta'}
+        \sum_k a_{\alpha\alpha'\beta\beta'}^{(n)}(k)f_{k,\alpha'\beta'}
+        \sum_{p(q,k)} b^{(n)}(q,p)g_{p,\alpha\beta}\\ 
+        &\phantom{=p\sum_{n=1}^3\Big[}+
+        \sum_{\alpha''\beta''}
+        \sum_k a^{(n)}(k)f_{k,\alpha\beta}
+        \sum_{p(q,k)}
+          b_{\alpha\alpha''\beta\beta''}^{(n)}(q,p)g_{p,\alpha''\beta''}
+        \\
+        &\phantom{=\nu\sum_{n=1}^3\Big[}+
+        \sum_{\alpha'\beta''}
+        \sum_k a_{\alpha\alpha'}^{(n)}(k)f_{k,\alpha'\beta}
+        \sum_{p(q,k)} b_{\beta\beta''}^{(n)}(q,p)g_{p,\alpha\beta''}\\
+        &\phantom{=\nu\sum_{n=1}^3\Big[}+
+        \sum_{\alpha''\beta'}
+        \sum_k a_{\beta\beta'}^{(n)}(k)f_{k,\alpha\beta'}
+        \sum_{p(q,k)} b_{\alpha\alpha''}^{(n)}(q,p)g_{p,\alpha''\beta}
+        \;\phantom+\Big]
+        \end{align}
+
+    with :math:`\nu = (\Delta q)^2/(32\pi^2q^3)` as a prefactor. This
+    expression does not assume symmetry under swapping :math:`f` with
+    :math:`g` and is used for the calculation of the stability matrix.
+    For the case of the memory kernel itself, the symmetry allows to further
+    reduce to
+
+    .. math::
+
+        \begin{align}
+        \hat M_{q,\alpha\beta}&=2\nu\sum_{n=1}^3
+        \sum_{\gamma\delta}\Big[\phantom+\,
+        \sum_k a_{\alpha\gamma\beta\delta}^{(n)}(k)\Phi_{k,\gamma\delta}
+        \sum_{p(q,k)} b^{(n)}(q,p)\Phi_{p,\alpha\beta}\\ \nonumber
+        &\phantom{=2\nu\sum_{n=1}^3\sum_{\gamma\delta}\Big[}+
+        \sum_k a_{\alpha\gamma}^{(n)}(k)\Phi_{k,\gamma\beta}
+        \sum_{p(q,k)} b_{\beta\delta}^{(n)}(q,p)\Phi_{p,\alpha\delta}
+        \;\phantom+\Big]
+        \end{align}
+
+    In the above expressions, the Bengtzelius coefficients are
+
+    .. math::
+
+        \begin{align}
+        a^{(1)}(k)&=k^5
+        & a_{\alpha\beta}^{(1)}(k)&=k\tilde c_{\alpha\beta}(k)
+        & a_{\alpha\beta\gamma\delta}^{(1)}(k)&=k^5\tilde c_{\alpha\beta}(k)
+                                               \tilde c_{\gamma\delta}(k)\\
+        a^{(2)}(k)&=-2k^3
+        & a_{\alpha\beta}^{(2)}(k)&=-k^5\tilde c_{\alpha\beta}(k)
+        & a_{\alpha\beta\gamma\delta}^{(2)}(k)&=2k^3\tilde c_{\alpha\beta}(k)
+                                                \tilde c_{\gamma\delta}(k)\\
+        a^{(3)}(k)&=k
+        & a_{\alpha\beta}^{(3)}(k)&=2k^3\tilde c_{\alpha\beta}(k)
+        & a_{\alpha\beta\gamma\delta}^{(3)}(k)&=k\tilde c_{\alpha\beta}(k)
+                                             \tilde c_{\gamma\delta}(k)
+        \\
+        b^{(1)}(q,p)&=p
+        & b_{\alpha\beta}^{(1)}(q,p)&=p(q^4\!-\!p^4)\tilde c_{\alpha\beta}(p)
+        & b_{\alpha\beta\gamma\delta}^{(1)}(q,p)&=p\tilde c_{\alpha\beta}(p)
+                                               \tilde c_{\gamma\delta}(p)\\
+        b^{(2)}(q,p)&=p(q^2\!-\!p^2)
+        & b_{\alpha\beta}^{(2)}(q,p)&=p\tilde c_{\alpha\beta}(p)
+        & b_{\alpha\beta\gamma\delta}^{(2)}(q,p)&=p(q^2\!+\!p^2)
+                      \tilde c_{\alpha\beta}(p)\tilde c_{\gamma\delta}(p)\\
+        b^{(3)}(q,p)&=p(q^2\!-\!p^2)^2
+        & b_{\alpha\beta}^{(3)}(q,p)&=p^3\tilde c_{\alpha\beta}(p)
+        & b_{\alpha\beta\gamma\delta}^{(3)}(q,p)&=p(q^2\!+\!p^2)^2
+                      \tilde c_{\alpha\beta}(p)\tilde c_{\gamma\delta}(p)
+        \end{align}
+
+    As in the scalar case, the performance gain known as Bengtzelius' trick
+    comes from realizing that the inner sum can be reduced to a
+    :math:`\mathcal O(1)` operation when its value for the previous
+    outer wave number is known.
+
+
+
 Critical amplitudes
 ^^^^^^^^^^^^^^^^^^^
 
