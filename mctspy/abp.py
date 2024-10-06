@@ -44,12 +44,11 @@ class abp_model_2d (model_base):
         return False
     def hopping (self):
         S = 2*self.L+1
-        #res = self.Dr * np.ones((self.M,S,S),dtype=self.dtype) * np.diag(np.ones(S,dtype=self.dtype))
         res = self.omega_R (self.L)
         res[:,self.L,self.L] = res[:,self.L,self.L] / self.sq
         return res
     def phi0 (self):
-        phi0 = np.ones_like(self.q)[:,None,None] * np.diag(np.ones(self.S))
+        phi0 = np.ones((self.M,1,1),dtype=self.dtype) * np.diag(np.ones(self.S))
         phi0[:,self.L,self.L] = self.sq
         return phi0
     def Bq (self):
@@ -70,6 +69,7 @@ class abp_model_2d (model_base):
     def dq (self):
         return _dq(self.q)
     def omega_T (self, Lcut):
+        """Return translation-frequency matrix."""
         L, S = Lcut, 2*Lcut+1
         wT = np.zeros((self.M,S,S),dtype=self.dtype)
         for l in range(-L,L+1):
@@ -82,7 +82,31 @@ class abp_model_2d (model_base):
                     else:
                         wT[:,L+l,L+ld] = - 0.5j/self.q*self.v0
         return wT
+    def omega_s_T_inv (self, Lcut):
+        """Return inverse of the translation-frequency matrix, self part."""
+        L, S = Lcut, 2*Lcut+1
+        Delta = np.sqrt(self.D0**2 + (self.v0/self.q)**2)
+        wTinv0 = np.zeros((self.M,S,S),dtype=self.dtype)
+        for l in range(-L,L+1):
+            for ld in range(-L,L+1):
+                wTinv0[:,L+l,L+ld] = np.power(1j*self.v0/self.q/ \
+                                     (self.D0 + Delta),abs(l-ld)) / Delta
+        return wTinv0
+    def omega_T_inv (self, Lcut):
+        """Return inverse of the translation-frequency matrix."""
+        L = Lcut
+        wTinv0 = self.omega_s_T_inv (Lcut)
+        wTinv = wTinv0.copy()
+        if L > 0:
+            u0 = -0.5j*self.q*self.v0/self.D0 * (self.sq - 1)
+            for l in range(-L,L+1):
+                for ld in range(-L,L+1):
+                    wTinv[:,L+l,L+ld] -= u0*wTinv0[:,L+l,L] * \
+                        (wTinv0[:,L+1,L+ld]+wTinv0[:,L-1,L+ld])/ \
+                        (self.q**2 + u0*(wTinv0[:,L+1,L]+wTinv0[:,L-1,L]))
+        return wTinv
     def omega_R (self, Lcut):
+        """Return rotation-frequency matrix."""
         L, S = Lcut, 2*Lcut+1
         return np.ones((self.M,S,S),dtype=self.dtype) \
                * self.Dr *np.diag(np.arange(-Lcut, Lcut+1)**2)
@@ -97,33 +121,50 @@ class abp_model_2d (model_base):
     def __init_vertices__ (self):
         q = self.q
         L=self.L
-        Delta = np.sqrt(self.D0**2 + (self.v0/self.q)**2)
-        wTinv0 = np.zeros((self.M,self.S,self.S),dtype=self.dtype)
-        for l in range(-L,L+1):
-            for ld in range(-L,L+1):
-                wTinv0[:,L+l,L+ld] = np.power(1j*self.v0/self.q/ \
-                                     (self.D0 + Delta),abs(l-ld)) / Delta
-        self.wTinv = wTinv0.copy()
-        if L > 0:
-            u0 = -0.5j*self.q*self.v0/self.D0 * (self.sq - 1)
-            for l in range(-L,L+1):
-                for ld in range(-L,L+1):
-                    self.wTinv[:,L+l,L+ld] -= u0*wTinv0[:,L+l,L] * \
-                        (wTinv0[:,L+1,L+ld]+wTinv0[:,L-1,L+ld])/ \
-                        (self.q**2 + u0*(wTinv0[:,L+1,L]+wTinv0[:,L-1,L]))
+        self.wTinv = self.omega_T_inv(self.L)
         self.__A__ = np.zeros((self.M,self.M,self.M),dtype=self.dtype)
         self.__B__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
         self.__C__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
         self.__D__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
         #self.__phase__ = np.zeros((self.M,self.S,self.S,self.S,self.S),dtype=self.dtype)
         A, B, C, D = self.__A__, self.__B__, self.__C__, self.__D__
+        Pe_t = self.v0/self.D0
+        if not Pe_t == 0:
+            self.__Av__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
+            self.__Bv__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
+            self.__Cv__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
+            self.__Dv__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
+            self.__Cvc__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
+            self.__Dvc__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
+            self.__Avv__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
+            self.__Avvc__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
+            self.__Bvv__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
+            self.__Bvvc__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
+            self.__Cvv__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
+            self.__Dvv__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
+            Av, Bv, Cv, Dv = self.__Av__, self.__Bv__, self.__Cv__, self.__Dv__
+            Cvc, Dvc = self.__Cvc__, self.__Dvc__
+            Avv, Bvv, Cvv, Dvv = self.__Avv__, self.__Bvv__, self.__Cvv__, self.__Dvv__
+            Avvc, Bvvc = self.__Avvc__, self.__Bvvc__
+        else:
+            self.__Av__ = np.zeros((1,1,1,1,1))
+            self.__Bv__ = np.zeros((1,1,1,1,1))
+            self.__Cv__ = np.zeros((1,1,1,1,1))
+            self.__Dv__ = np.zeros((1,1,1,1,1))
+            self.__Cvc__ = np.zeros((1,1,1,1,1))
+            self.__Dvc__ = np.zeros((1,1,1,1,1))
+            self.__Avv__ = np.zeros((1,1,1,1,1))
+            self.__Bvv__ = np.zeros((1,1,1,1,1))
+            self.__Avvc__ = np.zeros((1,1,1,1,1))
+            self.__Bvvc__ = np.zeros((1,1,1,1,1))
+            self.__Cvv__ = np.zeros((1,1,1,1,1))
+            self.__Dvv__ = np.zeros((1,1,1,1,1))
         q = self.q
         M = self.M
         lr = np.arange(-L,L+1)
         pre = self.rho/(8*np.pi**2)
-        Pe_t = self.v0/self.D0
         v0pre = 0.5j*Pe_t*self.sq
-        c = self.cq
+        Sq, c = self.sq, self.cq
         for qi in range(M):
             for ki in range(M):
                 if ki <= qi:
@@ -140,36 +181,100 @@ class abp_model_2d (model_base):
                     minval = x[-1]
                 y = np.sqrt(1-x*x)
                 thk = np.power(x[:,None]+1j*y[:,None],lr)
-                thp = np.power(q[ki]/x[:,None],lr) * np.power((q[qi]/q[ki]-x[:,None])-1j*y[:,None],lr)
+                thp = np.power(q[ki]/q[p,None],lr) * np.power((q[qi]/q[ki]-x[:,None])-1j*y[:,None],lr)
                 assert (not np.isnan(thk).any())
                 assert (not np.isnan(thp).any())
+                # A: terms phip(0 ,0 ), phik(l ,l')
+                # B: terms phip(0 ,l'), phik(l, 0 )
+                # C: terms phip(l, 0 ), phik(0, l')
+                # D: terms phip(l, l'), phik(0, 0 )
                 A[qi,ki,p] = pre * (2*q[qi]**2 * g0unsum(c[p]**2,x,1,minval) \
                          - 4*q[qi]*q[ki] * g1unsum(c[p]**2,x,1,minval) \
                          + 2*q[ki]**2 * g2unsum(c[p]**2,x,1,minval) )
                 for l in lr:
                     for ld in lr:
-                        B[qi,ki,p,L+l,L+ld] = pre * (2*q[qi]*q[ki] * g1unsum(thp[:,L+ld]*thk[:,L-l]*c[ki]*c[p],x,1,minval) \
-                                 - 2*q[ki]**2 * g2unsum(thp[:,L+ld]*thk[:,L-l]*c[ki]*c[p],x,1,minval) )
-                        C[qi,ki,p,L+l,L+ld] = pre * (2*q[qi]*q[ki] * g1unsum(thp[:,L-l]*thk[:,L+ld]*c[ki]*c[p],x,1,minval) \
-                                 - 2*q[ki]**2 * g2unsum(thp[:,L-l]*thk[:,L+ld]*c[ki]*c[p],x,1,minval) )
-                        D[qi,ki,p,L+l,L+ld] = pre * 2*q[ki]**2 * g2unsum(thp[:,L+ld]*thp[:,L-l]*c[ki]**2,x,1,minval)
+                        tmp = c[ki]*c[p] * thk[:,L-l]*thp[:,L+ld]
+                        B[qi,ki,p,L+l,L+ld] = pre * (\
+                                 2*q[qi]*q[ki] * g1unsum(tmp,x,1,minval) \
+                                 - 2*q[ki]**2 * g2unsum(tmp,x,1,minval) )
+                        tmp = c[ki]*c[p] * thk[:,L+ld]*thp[:,L-l]
+                        C[qi,ki,p,L+l,L+ld] = pre * (\
+                                 2*q[qi]*q[ki] * g1unsum(tmp,x,1,minval) \
+                                 - 2*q[ki]**2 * g2unsum(tmp,x,1,minval) )
+                        tmp = c[ki]**2 * thp[:,L-l]*thp[:,L+ld]
+                        D[qi,ki,p,L+l,L+ld] = pre * 2*q[ki]**2 * \
+                            g2unsum(tmp,x,1,minval)
                         if not Pe_t==0:
+                            # Av: terms phip(-1,0 )+phip(1 , 0), phik(l ,l')
+                            # Bv: terms phip(-1,l')+phip(1 ,l'), phik(l, 0 )
+                            # Cv: terms phip(l-1,0), phik(0,l')
+                            # Cv*(-l,-l'): phip(l+1,0), phik(0,l')
+                            # Dv: terms phip(l-1,l'), phik(0,0)
+                            # Dv*(-l,-l'): phip(l+1,l'), phik(0,0)
+                            # Avv: terms phip(0,0), phik(l-1,l')
+                            # Avv*(-l,-l'): phip(0,0), phik(l+1,l')
+                            # Bvv: terms phip(0,l') phik(l-1,0)
+                            # Bvv*(-l,-l'): phip(0,l') phik(l+1,0)
+                            # Cvv: terms phip(l,0) phik(-1,l')+phik(1,l')
+                            # Dvv: terms phip(l,l') phik(-1,0)+phik(1,0)
                             if L>=1:
-                                A[qi,ki,L+l,L+ld] += v0pre[qi] * ( \
-                                    2 * g0((phi[p,L-1,L]+phi[p,L+1,L])*p*Sq[p]*c[p]**2*thk[:,L-l]*thk[:,L+ld],x,1,minval) \
-                                    - 2*q[ki]/q[qi] * g1((phi[p,L-1,L]+phi[p,L+1,L])*p*Sq[p]*c[p]**2*thk[:,L-l]*thk[:,L+ld],x,1,minval) )
-                                B[qi,ki,L+l,L+ld] += v0pre[qi] * \
-                                    2*q[ki]/q[qi] * g1((phi[p,L-1,L+ld]+phi[p,L+1,L+ld])*p*Sq[p]*c[p]*c[ki]*thk[:,L-l]*thp[:,L+ld],x,1,minval)
+                                tmp = p*Sq[p]*c[p]**2 * thk[:,L-l]*thk[:,L+ld]
+                                Av[qi,ki,p,L+l,L+ld] = v0pre[qi] * ( \
+                                    2 * g0unsum(tmp,x,1,minval) \
+                                    - 2*q[ki]/q[qi] * g1unsum(tmp,x,1,minval) )
+                                tmp = p*Sq[p]*c[p]*c[ki] * thk[:,L-l]*thp[:,L+ld]
+                                Bv[qi,ki,p,L+l,L+ld] = v0pre[qi] * \
+                                    2*q[ki]/q[qi] * g1unsum(tmp,x,1,minval)
                             if L>=abs(l)+1:
-                                C[qi,ki,L+l,L+ld] += v0pre[qi] * ( \
-                                    - 2 * g0((phi[p,L+l-1,L]*thk[:,L-1]*thp[:,L+1]+phi[p,L+l+1,L]*thk[:,L+1]*thp[:,L-1])*q[ki]*c[ki]*c[p]*thk[:,L+ld]*thp[:,L-l],x,1,minval) \
-                                    + 2*q[ki]/q[qi] * g1((phi[p,L+l-1,L]*thk[:,L-1]*thp[:,L+1]+phi[p,L+l+1,L]*thk[:,L+1]*thp[:,L-1])*q[ki]*c[ki]*c[p]*thk[:,L+ld]*thp[:,L-l],x,1,minval) )
-                                D[qi,ki,L+l,L+ld] += v0pre[qi] * \
-                                    (-2) * q[ki]/q[qi] * g1((phi[p,L+l-1,L+ld]*thk[:,L-1]*thp[:,L+1]+phi[p,L+l+1,L+ld]*thk[:,L+1]*thp[:,L-1])*q[ki]*c[ki]**2*thp[:,L-l]*thp[:,L+ld],x,1,minval)
+                                tmp = q[ki]*c[ki]*c[p] * thk[:,L+ld]*thp[:,L-l] * thk[:,L-1]*thp[:,L+1]
+                                Cv[qi,ki,p,L+l,L+ld] = v0pre[qi] * ( \
+                                    - 2 * g0unsum(tmp,x,1,minval) \
+                                    + 2*q[ki]/q[qi] * g1unsum(tmp,x,1,minval) )
+                                tmp = q[ki]*c[ki]*c[p] * thk[:,L+ld]*thp[:,L-l] * thk[:,L+1]*thp[:,L-1]
+                                Cvc[qi,ki,p,L+l,L+ld] = v0pre[qi] * ( \
+                                    - 2 * g0unsum(tmp,x,1,minval) \
+                                    + 2*q[ki]/q[qi] * g1unsum(tmp,x,1,minval) )
+                                tmp = q[ki]*c[ki]**2 * thp[:,L-l]*thp[:,L+ld] * thk[:,L-1]*thp[:,L+1]
+                                Dv[qi,ki,p,L+l,L+ld] = v0pre[qi] * ( \
+                                    (-2) * q[ki]/q[qi] * g1unsum(tmp,x,1,minval))
+                                tmp = q[ki]*c[ki]**2 * thp[:,L-l]*thp[:,L+ld] * thk[:,L+1]*thp[:,L-1]
+                                Dvc[qi,ki,p,L+l,L+ld] = v0pre[qi] * ( \
+                                    (-2) * q[ki]/q[qi] * g1unsum(tmp,x,1,minval))
+                                tmp = p*c[p]**2 * thk[:,L-l]*thk[:,L+ld] * thk[:,L+1]*thp[:,L-1]
+                                Avv[qi,ki,p,L+l,L+ld] = v0pre[qi] * ( \
+                                    -2 * g0unsum(tmp,x,1,minval) \
+                                    + 2*q[ki]/q[qi] * g1unsum(tmp,x,1,minval))
+                                tmp = p*c[p]**2 * thk[:,L-l]*thk[:,L+ld] * thk[:,L-1]*thp[:,L+1]
+                                Avvc[qi,ki,p,L+l,L+ld] = v0pre[qi] * ( \
+                                    -2 * g0unsum(tmp,x,1,minval) \
+                                    + 2*q[ki]/q[qi] * g1unsum(tmp,x,1,minval))
+                                tmp = p*c[ki]*c[p] * thk[:,L-l]*thp[:,L+ld] * thk[:,L+1]*thp[:,L-1]
+                                Bvv[qi,ki,p,L+l,L+ld] = v0pre[qi] * ( \
+                                    -2*q[ki]/q[qi] * g1unsum(tmp,x,1,minval))
+                                tmp = p*c[ki]*c[p] * thk[:,L-l]*thp[:,L+ld] * thk[:,L-1]*thp[:,L+1]
+                                Bvvc[qi,ki,p,L+l,L+ld] = v0pre[qi] * ( \
+                                    -2*q[ki]/q[qi] * g1unsum(tmp,x,1,minval))
+                            if L>=1:
+                                tmp = q[ki]*Sq[ki]*c[ki]*c[p] * thk[:,L+ld]*thp[:,L-l]
+                                Cvv[qi,ki,p,L+l,L+ld] = v0pre[qi] * ( \
+                                    + 2 * g0unsum(tmp,x,1,minval) \
+                                    - 2*q[ki]/q[qi] * g1unsum(tmp,x,1,minval))
+                                tmp = q[ki]*Sq[ki]*c[ki]**2 * thp[:,L-l]*thp[:,L+ld]
+                                Dvv[qi,ki,p,L+l,L+ld] = v0pre[qi] * ( \
+                                    2 * q[ki]/q[qi] * g1unsum(tmp,x,1,minval))
                 assert (not np.isnan(A[qi,ki]).any())
                 assert (not np.isnan(B[qi,ki]).any())
                 assert (not np.isnan(C[qi,ki]).any())
                 assert (not np.isnan(D[qi,ki]).any())
+                if not Pe_t == 0:
+                    assert (not np.isnan(Av[qi,ki]).any())
+                    assert (not np.isnan(Bv[qi,ki]).any())
+                    assert (not np.isnan(Cv[qi,ki]).any())
+                    assert (not np.isnan(Dv[qi,ki]).any())
+                    assert (not np.isnan(Avv[qi,ki]).any())
+                    assert (not np.isnan(Bvv[qi,ki]).any())
+                    assert (not np.isnan(Cvv[qi,ki]).any())
+                    assert (not np.isnan(Dvv[qi,ki]).any())
 
     def make_kernel (self):
         M, S, L = self.M, self.S, self.L
@@ -179,6 +284,18 @@ class abp_model_2d (model_base):
         Bqk = void(self.__B__)
         Cqk = void(self.__C__)
         Dqk = void(self.__D__)
+        Avqk = void(self.__Av__)
+        Bvqk = void(self.__Bv__)
+        Cvqk = void(self.__Cv__)
+        Dvqk = void(self.__Dv__)
+        Cvcqk = void(self.__Cvc__)
+        Dvcqk = void(self.__Dvc__)
+        Avvqk = void(self.__Avv__)
+        Bvvqk = void(self.__Bvv__)
+        Avvcqk = void(self.__Avvc__)
+        Bvvcqk = void(self.__Bvvc__)
+        Cvvqk = void(self.__Cvv__)
+        Dvvqk = void(self.__Dvv__)
         #Pqk = void(self.__phase__)
         omega_T_inv = void(self.wTinv)
         Sq, c = self.sq, self.cq
@@ -189,6 +306,18 @@ class abp_model_2d (model_base):
             B = nparray(Bqk)
             C = nparray(Cqk)
             D = nparray(Dqk)
+            Av = nparray(Avqk)
+            Bv = nparray(Bvqk)
+            Cv = nparray(Cvqk)
+            Dv = nparray(Dvqk)
+            Cvc = nparray(Cvcqk)
+            Dvc = nparray(Dvcqk)
+            Avv = nparray(Avvqk)
+            Bvv = nparray(Bvvqk)
+            Avvc = nparray(Avvcqk)
+            Bvvc = nparray(Bvvcqk)
+            Cvv = nparray(Cvvqk)
+            Dvv = nparray(Dvvqk)
             #phase = nparray(Pqk)
             wTinv = nparray(omega_T_inv)
             lr = np.arange(-L,L+1)
@@ -196,11 +325,77 @@ class abp_model_2d (model_base):
             Binner = np.sum(B*phi[:,L,None,:],axis=-3)
             Cinner = np.sum(C*phi[:,:,L,None],axis=-3)
             Dinner = np.sum(D*phi[:,:,:],axis=-3)
+            if not Pe_t == 0.0:
+                if L>=1:
+                    Ainnerv = np.sum(Av*(phi[:,L-1,L,None,None]+phi[:,L+1,L,None,None]),axis=-3)
+                    Binner += np.sum(Bv*(phi[:,L-1,None,:]+phi[:,L+1,None,:]),axis=-3)
+                    # Cinner[q,k,l,ld]*phi[k,0,ld]
+                    # = C[q,k,p,l,ld]*phi[p,l,0]*phi[k,0,ld]
+                    # + Cv[q,k,p,l,ld]*phi[p,l-1,0]*phi[k,0,ld]
+                    # + Cv*[q,k,p,-l,-ld]*phi[p,l+1,0]*phi[k,0,ld]
+                    #Cinner[:,:,1:,:] += np.sum(Cv[:,:,:,1:,:]*phi[:,:-1,L,None],axis=-3) + np.sum(np.conjugate(Cv)[:,:,:,:0:-1,::-1]*phi[:,1:,L,None],axis=-3)
+                    Cinner[:,:,1:-1,:] += np.sum(Cv[:,:,:,1:-1,:]*phi[:,:-2,L,None],axis=-3)
+                    Cinner[:,:,1:-1,:] += np.sum(Cvc[:,:,:,1:-1,:]*phi[:,2:,L,None],axis=-3)
+                    Dinner[:,:,1:-1,:] += np.sum(Dv[:,:,:,1:-1,:]*phi[:,:-2,:],axis=-3) + np.sum(Dvc[:,:,:,1:-1,:]*phi[:,2:,:],axis=-3)
+                    A2inner = np.sum(Avv*phi[:,L,L,None,None],axis=-3)
+                    A2innerc = np.sum(Avvc*phi[:,L,L,None,None],axis=-3)
+                    B2inner = np.sum(Bvv*phi[:,L,None,:],axis=-3)
+                    B2innerc = np.sum(Bvvc*phi[:,L,None,:],axis=-3)
+                    C2inner = np.sum(Cvv*phi[:,:,L,None],axis=-3)
+                    D2inner = np.sum(Dvv*phi[:,:,:],axis=-3)
+            q_ = q[:,None,None]
+            dq = np.diff(q)[:,None,None]
             m[:,:,:] = - ( \
-                np.sum((q[:-1,None,None]*phi[:-1,:,:]*Ainner[:,:-1,None,None] + q[1:,None,None]*phi[1:,:,:]*Ainner[:,1:,None,None])/2 * np.diff(q)[:,None,None], axis=1) \
-                + np.sum((q[:-1,None,None]*phi[:-1,:,L,None]*Binner[:,:-1,:,:] + q[1:,None,None]*phi[1:,:,L,None]*Binner[:,1:,:,:])/2 * np.diff(q)[:,None,None], axis=1) \
-                + np.sum((q[:-1,None,None]*phi[:-1,L,None,:]*Cinner[:,:-1,:,:] + q[1:,None,None]*phi[1:,L,None,:]*Cinner[:,1:,:,:])/2 * np.diff(q)[:,None,None], axis=1) \
-                + np.sum((q[:-1,None,None]*phi[:-1,L,L,None,None]*Dinner[:,:-1,:,:] + q[1:,None,None]*phi[1:,L,L,None,None]*Dinner[:,1:,:,:])/2 * np.diff(q)[:,None,None], axis=1))
+                np.sum((q_[:-1]*phi[:-1,:,:]*Ainner[:,:-1,None,None] \
+                      + q_[1:]*phi[1:,:,:]*Ainner[:,1:,None,None])/2 \
+                      * dq, axis=1) \
+                + np.sum((q_[:-1]*phi[:-1,:,L,None]*Binner[:,:-1,:,:] \
+                      + q_[1:]*phi[1:,:,L,None]*Binner[:,1:,:,:])/2 \
+                      * dq, axis=1) \
+                + np.sum((q_[:-1]*phi[:-1,L,None,:]*Cinner[:,:-1,:,:] \
+                      + q_[1:]*phi[1:,L,None,:]*Cinner[:,1:,:,:])/2 \
+                      * dq, axis=1) \
+                + np.sum((q_[:-1]*phi[:-1,L,L,None,None]*Dinner[:,:-1,:,:] \
+                      + q_[1:]*phi[1:,L,L,None,None]*Dinner[:,1:,:,:])/2 \
+                      * dq, axis=1))
+            if (not Pe_t == 0.0) and L>=1:
+                m[:,:,:] -= ( \
+                    np.sum((q_[:-1]*phi[:-1,:,:]*Ainnerv[:,:-1,:,:] \
+                          + q_[1:]*phi[1:,:,:]*Ainnerv[:,1:,:,:])/2 \
+                          * dq, axis=1) \
+                    + np.sum((q_[:-1]*(phi[:-1,L-1,None,:]+phi[:-1,L+1,None,:])*C2inner[:,:-1,:,:] \
+                            + q_[1:]*(phi[1:,L-1,None,:]+phi[1:,L+1,None,:])*C2inner[:,1:,:,:])/2 \
+                            * dq, axis=1) \
+                    + np.sum((q_[:-1]*(phi[:-1,L-1,L,None,None]+phi[:-1,L+1,L,None,None])*D2inner[:,:-1,:,:] \
+                            + q_[1:]*(phi[1:,L-1,L,None,None]+phi[1:,L+1,L,None,None])*D2inner[:,1:,:,:])/2 \
+                            * dq, axis=1) \
+                )
+                m[:,1:-1,:] -= ( \
+                    + np.sum((q_[:-1]*phi[:-1,:-2,:]*A2inner[:,:-1,1:-1,:] \
+                            + q_[1:]*phi[1:,:-2,:]*A2inner[:,1:,1:-1,:])/2 \
+                            * dq, axis=1) \
+                )
+                m[:,1:-1,:] -= ( \
+                    + np.sum((q_[:-1]*phi[:-1,2:,:]*A2innerc[:,:-1,1:-1,:] \
+                            + q_[1:]*phi[1:,2:,:]*A2innerc[:,1:,1:-1,:])/2 \
+                            * dq, axis=1) \
+                )
+                m[:,1:-1,:] -= ( \
+                    + np.sum((q_[:-1]*phi[:-1,:-2,L,None]*B2inner[:,:-1,1:-1,:] \
+                            + q_[1:]*phi[1:,:-2,L,None]*B2inner[:,1:,1:-1,:])/2 \
+                            * dq, axis=1) \
+                )
+                m[:,1:-1,:] -= ( \
+                    + np.sum((q_[:-1]*phi[:-1,2:,L,None]*B2innerc[:,:-1,1:-1,:] \
+                            + q_[1:]*phi[1:,2:,L,None]*B2innerc[:,1:,1:-1,:])/2 \
+                            * dq, axis=1) \
+                )
             for qi in range(M):
                 m[qi,:,:] = np.dot(wTinv[qi],np.dot(m[qi],wTinv[qi]))
+                for l in lr:
+                    for ld in lr:
+                        if not (l-ld)%2: # even
+                            m[qi,L+l,L+ld] = m[qi,L+l,L+ld].real + 0.j
+                        else:
+                            m[qi,L+l,L+ld] = m[qi,L+l,L+ld].imag*1j + 0.0
         return ker
