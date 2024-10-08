@@ -69,7 +69,7 @@ class abp_model_2d (model_base):
     def dq (self):
         return _dq(self.q)
     def omega_T (self, Lcut):
-        """Return translation-frequency matrix."""
+        r"""Return translation-frequency matrix, divided by q^2."""
         L, S = Lcut, 2*Lcut+1
         wT = np.zeros((self.M,S,S),dtype=self.dtype)
         for l in range(-L,L+1):
@@ -83,17 +83,17 @@ class abp_model_2d (model_base):
                         wT[:,L+l,L+ld] = - 0.5j/self.q*self.v0
         return wT
     def omega_s_T_inv (self, Lcut):
-        """Return inverse of the translation-frequency matrix, self part."""
+        r"""Return inverse self-translation-frequency matrix, times q^2D_0."""
         L, S = Lcut, 2*Lcut+1
-        Delta = np.sqrt(self.D0**2 + (self.v0/self.q)**2)
+        Delta = np.sqrt(1. + (self.v0/self.D0/self.q)**2)
         wTinv0 = np.zeros((self.M,S,S),dtype=self.dtype)
         for l in range(-L,L+1):
             for ld in range(-L,L+1):
-                wTinv0[:,L+l,L+ld] = np.power(1j*self.v0/self.q/ \
-                                     (self.D0 + Delta),abs(l-ld)) / Delta
+                wTinv0[:,L+l,L+ld] = np.power(1j*self.v0/self.D0/self.q/ \
+                                     (1 + Delta),abs(l-ld)) / Delta
         return wTinv0
     def omega_T_inv (self, Lcut):
-        """Return inverse of the translation-frequency matrix."""
+        r"""Return inverse translation-frequency matrix, times q^2D_0."""
         L = Lcut
         wTinv0 = self.omega_s_T_inv (Lcut)
         wTinv = wTinv0.copy()
@@ -103,7 +103,7 @@ class abp_model_2d (model_base):
                 for ld in range(-L,L+1):
                     wTinv[:,L+l,L+ld] -= u0*wTinv0[:,L+l,L] * \
                         (wTinv0[:,L+1,L+ld]+wTinv0[:,L-1,L+ld])/ \
-                        (self.q**2 + u0*(wTinv0[:,L+1,L]+wTinv0[:,L-1,L]))
+                        (self.q**2*self.D0 + u0*(wTinv0[:,L+1,L]+wTinv0[:,L-1,L]))
         return wTinv
     def omega_R (self, Lcut):
         """Return rotation-frequency matrix."""
@@ -122,7 +122,7 @@ class abp_model_2d (model_base):
         q = self.q
         L=self.L
         self.wTinv = self.omega_T_inv(self.L)
-        self.__A__ = np.zeros((self.M,self.M,self.M),dtype=self.dtype)
+        self.__A__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
         self.__B__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
         self.__C__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
         self.__D__ = np.zeros((self.M,self.M,self.M,self.S,self.S),dtype=self.dtype)
@@ -188,11 +188,13 @@ class abp_model_2d (model_base):
                 # B: terms phip(0 ,l'), phik(l, 0 )
                 # C: terms phip(l, 0 ), phik(0, l')
                 # D: terms phip(l, l'), phik(0, 0 )
-                A[qi,ki,p] = pre * (2*q[qi]**2 * g0unsum(c[p]**2,x,1,minval) \
-                         - 4*q[qi]*q[ki] * g1unsum(c[p]**2,x,1,minval) \
-                         + 2*q[ki]**2 * g2unsum(c[p]**2,x,1,minval) )
                 for l in lr:
                     for ld in lr:
+                        tmp = c[p]**2 * thk[:,L-l]*thk[:,L+ld]
+                        A[qi,ki,p,L+l,L+ld] = pre * (\
+                            2*q[qi]**2 * g0unsum(tmp,x,1,minval) \
+                            - 4*q[qi]*q[ki] * g1unsum(tmp,x,1,minval) \
+                            + 2*q[ki]**2 * g2unsum(tmp,x,1,minval) )
                         tmp = c[ki]*c[p] * thk[:,L-l]*thp[:,L+ld]
                         B[qi,ki,p,L+l,L+ld] = pre * (\
                                  2*q[qi]*q[ki] * g1unsum(tmp,x,1,minval) \
@@ -321,7 +323,7 @@ class abp_model_2d (model_base):
             #phase = nparray(Pqk)
             wTinv = nparray(omega_T_inv)
             lr = np.arange(-L,L+1)
-            Ainner = np.sum(A*phi[:,L,L],axis=-1)
+            Ainner = np.sum(A*phi[:,L,L,None,None],axis=-3)
             Binner = np.sum(B*phi[:,L,None,:],axis=-3)
             Cinner = np.sum(C*phi[:,:,L,None],axis=-3)
             Dinner = np.sum(D*phi[:,:,:],axis=-3)
@@ -346,8 +348,8 @@ class abp_model_2d (model_base):
             q_ = q[:,None,None]
             dq = np.diff(q)[:,None,None]
             m[:,:,:] = - ( \
-                np.sum((q_[:-1]*phi[:-1,:,:]*Ainner[:,:-1,None,None] \
-                      + q_[1:]*phi[1:,:,:]*Ainner[:,1:,None,None])/2 \
+                np.sum((q_[:-1]*phi[:-1,:,:]*Ainner[:,:-1,:,:] \
+                      + q_[1:]*phi[1:,:,:]*Ainner[:,1:,:,:])/2 \
                       * dq, axis=1) \
                 + np.sum((q_[:-1]*phi[:-1,:,L,None]*Binner[:,:-1,:,:] \
                       + q_[1:]*phi[1:,:,L,None]*Binner[:,1:,:,:])/2 \
