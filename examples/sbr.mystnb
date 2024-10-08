@@ -116,7 +116,7 @@ correlators = mct.CorrelatorStack([g,g0])
 
 ```{code-cell} ipython3
 pbar = tqdm(total=g.blocks+1)
-correlators.solve_all(callback=lambda d, bs2, bs, c: pbar.update(1),stop_condition=lambda c:c==g0 or (c.phi_[-1]<-1).all())
+correlators.solve_all(callback=lambda d, bs2, bs, c: pbar.update(1),stop_condition=lambda c:False and c==g0 or (c.phi_[-1]<-1).all())
 pbar.close()
 ```
 
@@ -164,6 +164,70 @@ x_, y_  = np.meshgrid(np.arange(M),np.arange(M))
 fig, ax = plt.subplots(ncols=2,figsize=(16,12),subplot_kw=dict(projection='3d'))
 ax[0].plot_surface(x_, y_, -Blam)
 ax[1].plot_surface(x_, y_, -Blamglass)
+plt.show()
+```
+
+```{code-cell} ipython3
+tau_g = g.phi.shape[0] - np.sum(g.phi<-1,axis=0)
+```
+
+```{code-cell} ipython3
+np.std(tau_g)/np.mean(tau_g)
+```
+
+```{code-cell} ipython3
+import scipy.signal
+```
+
+```{code-cell} ipython3
+sigmarange = np.linspace(-1,1,21)
+l = 0.74
+a, b = mct.util.exponents(l)
+Bvalues = []
+for sigma in tqdm(sigmarange):
+    s = rng.normal(loc=sigma, scale=Dsigma, size=(M,)*dim)
+    s += sigma - np.mean(s)
+    g = mct.beta_scaling_function (lam=0.74, sigma=s, M=M, dim=dim, alpha=0.1, blocks=100, store=True)
+    g.solve_all()
+    Bvalues.append(np.mean(g.phi[-50:,:,:]*np.power(g.t[-50:],-b)[:,None,None],axis=0))
+```
+
+```{code-cell} ipython3
+Bvar = [np.std(Bx)/np.mean(Bx) for Bx in Bvalues]
+plt.plot(sigmarange,Bvar)
+plt.show()
+```
+
+```{code-cell} ipython3
+cmean=[]
+for Bx in Bvalues:
+    Bcorr=scipy.signal.correlate2d(Bx,Bx, boundary='wrap')
+    Bcorr_norm = Bcorr[Bcorr.shape[0]//2]/np.max(Bcorr)
+    cmean.append(np.mean(Bcorr_norm[Bcorr.shape[0]//8:Bcorr.shape[0]//8*3]))
+plt.plot(sigmarange,np.array(cmean))
+plt.show()
+```
+
+```{code-cell} ipython3
+def expfit(x, xi, A):
+    return A*np.exp(-x/xi)
+var=[]
+for Bx in Bvalues:
+    shape = Bx.shape
+    dists=np.sqrt(np.fft.fftfreq(shape[0])[:,None]**2 + np.fft.fftfreq(shape[1])[None,:]**2)
+    bins = np.arange(max(shape)/2+1)/float(max(shape))
+    hd=np.histogram(dists,bins)[0]
+    Bw = np.abs(np.fft.fft2(Bx))
+    lin=np.histogram(dists,bins,weights=Bw)[0]/hd
+    x=bins[:-1]+np.diff(bins)
+    #plt.plot(x[1:],lin[1:]/np.max(lin))
+    popt,_ = scipy.optimize.curve_fit(expfit,x[1:],lin[1:]/np.max(lin))
+    #plt.plot(x[1:],expfit(x[1:],*popt),linestyle='dashed')
+    var.append(popt[0])
+plt.plot(sigmarange,np.array(var))
+#x=np.arange(lin.shape[0])[1:]
+#plt.plot(x,np.exp(-x*2))
+#plt.plot(np.max(Blamw)*np.exp(-np.arange(hd.shape[0])))
 plt.show()
 ```
 
