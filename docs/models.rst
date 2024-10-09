@@ -126,7 +126,7 @@ and the isotropic advected wave number
 
     .. math::
 
-        \sigma = \frac{kT\dot\gamma}{60\pi^2}\int_0^\infty dt
+        \sigma = \frac{kT\rho\dot\gamma}{60\pi^2}\int_0^\infty dt
         \int dk\frac{k^5c_k'S'_{k(t)}}{k(t)}\phi_{k(t)}^2(t)
 
     In the current version of the code, we integrate however
@@ -162,6 +162,18 @@ presented by Kranz/Sperl/Zippelius [Kranz2010]_.
     Note that the Enskog damping term requires a contact value for
     the RDF. It is expected that the structure factor implements a
     function `contact_value()`, else this value is set to unity.
+
+On the basis of the granular MCT model, Kranz et al. [Kranz2018]_ have
+developed an integration-through transients (ITT) model for sheared and
+agitated granular materials.
+
+.. [Kranz2018] W. T. Kranz, F. Frahsa, A. Zippelius, M. Fuchs,
+   and M. Sperl, Phys. Rev. Lett. 121, 148002 (2018),
+   `DOI:10.1103/PhysRevLett.121.148002 <https://doi.org/10.1103/PhysRevLett.121.148002>`_
+
+.. autoclass:: mctspy.granular.gitt_model
+    :members:
+    :inherited-members:
 
 
 Mixtures
