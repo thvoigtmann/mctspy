@@ -163,7 +163,7 @@ class abp_model_2d (model_base):
         M = self.M
         lr = np.arange(-L,L+1)
         pre = self.rho/(8*np.pi**2)
-        v0pre = 0.5j*Pe_t*self.sq
+        v0pre = pre * 0.5j*Pe_t*self.sq
         Sq, c = self.sq, self.cq
         for qi in range(M):
             for ki in range(M):
@@ -257,7 +257,7 @@ class abp_model_2d (model_base):
                                 Bvvc[qi,ki,p,L+l,L+ld] = v0pre[qi] * ( \
                                     -2*q[ki]/q[qi] * g1unsum(tmp,x,1,minval))
                             if L>=1:
-                                tmp = q[ki]*Sq[ki]*c[ki]*c[p] * thk[:,L+ld]*thp[:,L-l]
+                                tmp = q[ki]*Sq[ki]*c[ki]*c[p] * thp[:,L+ld]*thk[:,L-l]
                                 Cvv[qi,ki,p,L+l,L+ld] = v0pre[qi] * ( \
                                     + 2 * g0unsum(tmp,x,1,minval) \
                                     - 2*q[ki]/q[qi] * g1unsum(tmp,x,1,minval))
@@ -329,7 +329,7 @@ class abp_model_2d (model_base):
             Dinner = np.sum(D*phi[:,:,:],axis=-3)
             if not Pe_t == 0.0:
                 if L>=1:
-                    Ainnerv = np.sum(Av*(phi[:,L-1,L,None,None]+phi[:,L+1,L,None,None]),axis=-3)
+                    Ainner += np.sum(Av*(phi[:,L-1,L,None,None]+phi[:,L+1,L,None,None]),axis=-3)
                     Binner += np.sum(Bv*(phi[:,L-1,None,:]+phi[:,L+1,None,:]),axis=-3)
                     # Cinner[q,k,l,ld]*phi[k,0,ld]
                     # = C[q,k,p,l,ld]*phi[p,l,0]*phi[k,0,ld]
@@ -362,10 +362,7 @@ class abp_model_2d (model_base):
                       * dq, axis=1))
             if (not Pe_t == 0.0) and L>=1:
                 m[:,:,:] -= ( \
-                    np.sum((q_[:-1]*phi[:-1,:,:]*Ainnerv[:,:-1,:,:] \
-                          + q_[1:]*phi[1:,:,:]*Ainnerv[:,1:,:,:])/2 \
-                          * dq, axis=1) \
-                    + np.sum((q_[:-1]*(phi[:-1,L-1,None,:]+phi[:-1,L+1,None,:])*C2inner[:,:-1,:,:] \
+                    np.sum((q_[:-1]*(phi[:-1,L-1,None,:]+phi[:-1,L+1,None,:])*C2inner[:,:-1,:,:] \
                             + q_[1:]*(phi[1:,L-1,None,:]+phi[1:,L+1,None,:])*C2inner[:,1:,:,:])/2 \
                             * dq, axis=1) \
                     + np.sum((q_[:-1]*(phi[:-1,L-1,L,None,None]+phi[:-1,L+1,L,None,None])*D2inner[:,:-1,:,:] \
@@ -394,10 +391,10 @@ class abp_model_2d (model_base):
                 )
             for qi in range(M):
                 m[qi,:,:] = np.dot(wTinv[qi],np.dot(m[qi],wTinv[qi]))
-                for l in lr:
-                    for ld in lr:
-                        if not (l-ld)%2: # even
-                            m[qi,L+l,L+ld] = m[qi,L+l,L+ld].real + 0.j
-                        else:
-                            m[qi,L+l,L+ld] = m[qi,L+l,L+ld].imag*1j + 0.0
+                #for l in lr:
+                #    for ld in lr:
+                #        if not (l-ld)%2: # even
+                #            m[qi,L+l,L+ld] = m[qi,L+l,L+ld].real + 0.j
+                #        else:
+                #            m[qi,L+l,L+ld] = m[qi,L+l,L+ld].imag*1j + 0.0
         return ker
