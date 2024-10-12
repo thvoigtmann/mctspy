@@ -9,6 +9,8 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
+mystnb:
+  execution_timeout: -1
 ---
 
 # Hard-Sphere System
@@ -19,7 +21,7 @@ import matplotlib.pyplot as plt
 ```
 
 ```{code-cell} ipython3
-from tqdm import tqdm
+from tqdm.autonotebook import tqdm
 ```
 
 ```{code-cell} ipython3
