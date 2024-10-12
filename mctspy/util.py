@@ -294,6 +294,7 @@ def evscan(phi0, phi1, calc_ev, eps=1e-6, accuracy=1e-6):
                         evs[0] = evs[1]
                     else:
                         #print ("cannot decide what to do",[ev.eval for ev in evs])
+                        break
         evs[pos] = calc_ev(phi)
         phis[pos] = phi
         dphi = (phis[2]-phis[0])/2
