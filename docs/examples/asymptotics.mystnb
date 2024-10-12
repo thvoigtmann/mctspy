@@ -9,9 +9,11 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
+mystnb:
+  execution_timeout: -1
 ---
 
-# Beta-Scaling
+# Beta-Scaling Asymptotics
 
 ```{code-cell} ipython3
 import numpy as np
@@ -19,7 +21,7 @@ import matplotlib.pyplot as plt
 ```
 
 ```{code-cell} ipython3
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import pandas as pd
 ```
 
@@ -51,11 +53,14 @@ The short-time asymptote of $g(t)$ is $(t/t_0)^{-a}$, while the long-time asympt
 
 ```{code-cell} ipython3
 plt.plot(g.t[1:], g.phi[1:,0])
-plt.plot(g.t[1:], np.power(g.t[1:],-a),linestyle='dotted')
-plt.plot(g.t[1:], -0.861*np.power(g.t[1:],b),linestyle='dotted')
+plt.plot(g.t[1:], np.power(g.t[1:],-a),linestyle='dotted', label=r'$(t/t_0)^{-a}$')
+plt.plot(g.t[1:], -0.861*np.power(g.t[1:],b),linestyle='dotted', label=r'$-\hat B t^{b}$')
 plt.xscale('log')
 plt.xlim(1e-5,1e4)
 plt.ylim(-20,20)
+plt.xlabel(r'$t/t_0$')
+plt.ylabel(r'$g(t)$')
+plt.legend()
 plt.show()
 ```
 
@@ -99,14 +104,6 @@ with pd.option_context('display.max_rows',10,'display.max_columns',10):
 
 ```{code-cell} ipython3
 import tabulate
-```
-
-```{code-cell} ipython3
-np.pad(np.array((ltab,Btab)).T,((0,5),(0,0)),mode='constant',constant_values=np.nan).shape
-```
-
-```{code-cell} ipython3
-54/3
 ```
 
 ```{code-cell} ipython3

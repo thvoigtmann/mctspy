@@ -9,6 +9,8 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
+mystnb:
+  execution_timeout: -1
 ---
 
 # F12 Model with Shear
@@ -19,12 +21,18 @@ import scipy
 import matplotlib.pyplot as plt
 import scipy.linalg as la
 import itertools
-from tqdm import tqdm
+from tqdm.auto import tqdm
 ```
 
 ```{code-cell} ipython3
 import mctspy as mct
 ```
+
+## Flow curve and Trouton Ratio
+
++++
+
+For the calculations with tensorial flow fields, we define helper functions to get the Finger tensor, and its derivatives.
 
 ```{code-cell} ipython3
 def finger (kappa0, gammadot, t):
@@ -39,14 +47,20 @@ def dBinv (kappa0, gammadot, t):
     return (kappa0.T @ Binv + Binv @ kappa0) * (-gammadot)
 ```
 
+Although it is less efficient than the scalar solver, we can also look at the tensorial model in simple shear flow, for which the velocity-gradient tensor is this:
+
 ```{code-cell} ipython3
 kappa0 = np.array([[0,1,0],[0,0,0],[0,0,0]])
 ```
+
+Define a set of flow rates and prepare an array to store the stress tensors:
 
 ```{code-cell} ipython3
 gammadot = 10**np.linspace(0,-9,10)
 sigma = np.zeros((gammadot.shape[0], 3, 3))
 ```
+
+This code calculates the flow curve for the "upper convected" F12 model in simple shear:
 
 ```{code-cell} ipython3
 v1c, v2c = 2*(np.sqrt(2.)-1), 2.0
@@ -62,22 +76,31 @@ for i,gdot in enumerate(gammadot):
     sigma[i] = scipy.integrate.trapezoid(phi.shear_modulus(lc=False), x=phi.t, axis=0)
 ```
 
+Here is the flow curve (multiplied with a factor 100 that matches the convention used in a number of MCT papers, to get the values to reasonable magnitude).
+
 ```{code-cell} ipython3
 plt.plot(gammadot, 100*sigma[:,0,1])
 plt.xscale('log')
 plt.yscale('log')
+plt.xlabel(r'$\dot\gamma$')
+plt.ylabel(r'$\sigma$')
 plt.show()
 ```
+
+The following is a plot of the viscosity and of the normal-stress coefficient. This figure corresponds to a set of curves in Fig. 1 of the Brader et al. PNAS paper from 2009.
 
 ```{code-cell} ipython3
-plt.plot(gammadot, 100*sigma[:,0,1]/gammadot)
-plt.plot(gammadot, 100*sigma[:,0,0]/gammadot**2)
+plt.plot(gammadot, 100*sigma[:,0,1]/gammadot, label='viscosity')
+plt.plot(gammadot, 100*sigma[:,0,0]/gammadot**2, label='normal stress coefficient')
 plt.xscale('log')
 plt.yscale('log')
+plt.xlabel(r'$\dot\gamma$')
+plt.ylabel(r'$\eta$, $\Psi_1$')
+plt.legend()
 plt.show()
 ```
 
-(This reproduces a curve from Fig. 1 of the PNAS.)
+Calculate the stresses in extensional flow:
 
 ```{code-cell} ipython3
 kappa0ext = np.array([[1,0,0],[0,-1,0],[0,0,0]])
@@ -99,14 +122,22 @@ for i,gdot in enumerate(gammadot):
     sigmaext_lc[i] = scipy.integrate.trapezoid(phi.shear_modulus(lc=True), x=phi.t, axis=0)
 ```
 
+This plot shows the Trouton ratio (another figure of the Brader PNAS):
+
 ```{code-cell} ipython3
 plt.plot(gammadot, (sigmaext[:,0,0]-sigmaext[:,1,1])/sigma[:,0,1])
 plt.plot(gammadot, (sigmaext_lc[:,0,0]-sigmaext_lc[:,1,1])/sigma[:,0,1])
 plt.xscale('log')
 plt.xlim(1e-9,1e-2)
 plt.ylim(0,4)
+plt.xlabel(r'$\dot\gamma$')
+plt.ylabel('Trouton ratio')
 plt.show()
 ```
+
+## Yield Surface
+
++++
 
 Calculation of the yield surface.
 
