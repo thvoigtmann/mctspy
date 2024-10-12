@@ -21,10 +21,20 @@ import matplotlib.pyplot as plt
 ```
 
 ```{code-cell} ipython3
+import itertools
+```
+
+```{code-cell} ipython3
 import mctspy as mct
 ```
 
-The F12 model is perhaps the most famous schematic model of MCT.
+The F12 model is perhaps the most famous schematic model of MCT. It is defined by the memory kernel
+\begin{equation} m[f]=v_1f+v_2f^2 \end{equation}
+and contains a line of glass transitions at
+\begin{align} v_2^c&=1/\lambda^2 & v_1^c&=(2\lambda-1)/\lambda^2 \end{align}
+with exponent parameter $\lambda\in[1/2,1[$ (and in addition a continuous transition line for $v_1^c=1$ and $v_2\le1$.
+
+The value of $\lambda=1/\sqrt{2}$ is often used as an exemplary case:
 
 ```{code-cell} ipython3
 model = mct.f12model (v1=2*(np.sqrt(2)-1) - 1e-3/(np.sqrt(2)-1), v2=2)
@@ -34,11 +44,13 @@ model = mct.f12model (v1=2*(np.sqrt(2)-1) - 1e-3/(np.sqrt(2)-1), v2=2)
 phi = mct.correlator (model=model, store=True)
 ```
 
+We are going to solve this correlator with a coupled model, the one defined by Sjögren: it defines a second correlator with memory kernel
+\begin{equation} m^s[f,f^s]=v_sff^s \end{equation}
+that represents "tagged-particle" motion.
+
 ```{code-cell} ipython3
 correlators = mct.CorrelatorStack([phi])
 ```
-
-Let us add a Sjögren correlator:
 
 ```{code-cell} ipython3
 model_s = mct.sjoegren_model(vs=30, base_model=model)
@@ -46,9 +58,13 @@ phi_s = mct.correlator (model=model_s, base=phi, store=True)
 correlators.append(phi_s)
 ```
 
+Now we can solve the two models together.
+
 ```{code-cell} ipython3
 correlators.solve_all()
 ```
+
+These are the two correlation functions:
 
 ```{code-cell} ipython3
 plt.plot(phi.t, phi.phi, label=r'$\phi(t)$, F12 model')
@@ -59,6 +75,8 @@ plt.ylabel(r'$\phi(t)$, $\phi^s(t)$')
 plt.legend()
 plt.show()
 ```
+
+The correlation functions can be represented as Fourier-transformed spectra. For this, we use the one-sided Fourier transform with an algorithm going back to Filon and Tuck.
 
 ```{code-cell} ipython3
 def FT (f, t, w):
@@ -75,16 +93,20 @@ phi_w = FT (phi.phi[:,0], phi.t, w)
 phi_s_w = FT (phi_s.phi[:,0], phi_s.t, w)
 ```
 
+From linear-response theory we observe that the Fourier-transformed correlation function defines (through its derivative) the dynamic susceptibilities:
+
 ```{code-cell} ipython3
 chi = 1j*w*phi_w
 chi_s = 1j*w*phi_s_w
 ```
 
 ```{code-cell} ipython3
-plt.plot(w, -chi.real, label='Re')
-plt.plot(w, chi.imag, label='Im')
-plt.plot(w, -chi_s.real, label='Re s')
-plt.plot(w, chi_s.imag, label='Im s')
+colors = itertools.cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+plt.plot(w, -chi.real, label=r"$\chi'$, F12 model", color=next(colors))
+plt.plot(w, chi.imag, label=r"$\chi''$, F12 model", color=next(colors))
+colors = itertools.cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+plt.plot(w, -chi_s.real, label=r"Sjoegren model", color=next(colors), linestyle='dashed')
+plt.plot(w, chi_s.imag, color=next(colors), linestyle='dashed')
 plt.xscale('log')
 plt.yscale('log')
 plt.xlabel(r'$\omega$')
@@ -94,13 +116,22 @@ plt.legend()
 plt.show()
 ```
 
-$$ -1 + s\hat\phi(s) + \hat\phi(s) + \hat m(s)(-1 + s\hat\phi(s)) = 0 $$
+## Consistency check
+
++++
+
+The Fourier transform allows to perform a consistency check of the algorithm: note that the Mori-Zwanzig equation transforms to
+\begin{equation}
+-1 + s\hat\phi(s) + \hat\phi(s) + \hat m(s)(-1 + s\hat\phi(s)) = 0
+\end{equation}
+and thus we can obtain $\hat\phi(s)$ from the Fourier transform of the memory kernel, $\hat m(s)$ as
+\begin{equation}
+\hat\phi(s)=\frac{1+\hat m(s)}{1 + s(1+\hat m(s))}
+\end{equation}
 
 ```{code-cell} ipython3
 m_w = FT (phi.m[:,0], phi.t, w)
 ```
-
-$$ \hat\phi(s)=\frac{1+\hat m(s)}{1 + s(1+\hat m(s))} $$
 
 ```{code-cell} ipython3
 phi_from_m = (m_w+1)/(-1j*w*(1+m_w)+1)
@@ -109,12 +140,18 @@ phi_from_m = (m_w+1)/(-1j*w*(1+m_w)+1)
 ```{code-cell} ipython3
 plt.plot(w, phi_w.real)
 plt.plot(w, phi_from_m.real, linestyle='dashed')
+plt.plot(w, phi_w.imag)
+plt.plot(w, phi_from_m.imag, linestyle='dashed')
 plt.xscale('log')
 plt.yscale('log')
 plt.show()
 ```
 
-$$ -1+\frac{\hat\phi(s)}{1-s\hat\phi(s)}=\hat m(s)=-1-\frac{\hat\phi(s)}{\hat{\dot\phi}(s)} $$
+Alternatively, we obtain the Fourier-transformed memory kernel from the Fourier-transformed correlator,
+\begin{equation}
+-1+\frac{\hat\phi(s)}{1-s\hat\phi(s)}=\hat m(s)=-1-\frac{\hat\phi(s)}{\hat{\dot\phi}(s)}
+\end{equation}
+where it depends on the frequency range whether it is numerically advantageous to separately transform the numerical derivative of the correlator or not.
 
 ```{code-cell} ipython3
 m_from_phi = -1+phi_w/(1+1j*w*phi_w)
@@ -129,21 +166,32 @@ m_from_phi_dphi = -1 - phi_w/dphi_w
 ```{code-cell} ipython3
 plt.plot(w, m_w.real)
 plt.plot(w, m_from_phi.real, linestyle='dashed')
+plt.plot(w, m_from_phi_dphi.real, linestyle='dotted')
+plt.plot(w, m_w.imag)
+plt.plot(w, m_from_phi.imag, linestyle='dashed')
+plt.plot(w, m_from_phi_dphi.imag, linestyle='dotted')
 plt.xscale('log')
 plt.yscale('log')
 plt.show()
 ```
 
 ```{code-cell} ipython3
-plt.plot(w,np.abs(m_w-m_from_phi)*w)
-plt.plot(w,np.abs(phi_w-phi_from_m)*w)
-plt.plot(w,np.abs(m_w-m_from_phi_dphi)*w)
+plt.plot(w,np.abs(m_w-m_from_phi)*w, label=r'$m$ from $\phi$')
+plt.plot(w,np.abs(phi_w-phi_from_m)*w, label=r'$\phi$ from $m$')
+plt.plot(w,np.abs(m_w-m_from_phi_dphi)*w, label=r'$m$ from $\phi$ and $\dot\phi$')
 plt.xscale('log')
 plt.yscale('log')
+plt.xlabel(r'$\omega$')
+plt.ylabel('absolute error')
+plt.legend()
 plt.show()
 ```
 
 # F1 Model
+
++++
+
+Setting $v_2=0$, one obtains the F1 model. It is not typically used for studies of the MCT glass transition, because its transition is continuous in the nonergodicity parameter, contrary to observation of structural glasses. But it plays a specific role for localization-type transitions, and because it can in principle be solved analytically (in the Laplace domain).
 
 ```{code-cell} ipython3
 nrange=np.arange(1,5)
@@ -153,12 +201,16 @@ for n in nrange:
     f1model[n] = mct.f12model(1.0+10.**-n, 0.0)
 ```
 
+We solve for a number of correlators at various distances from the critical point of the F1 model, $v_1^c=1$.
+
 ```{code-cell} ipython3
 correlators = mct.CorrelatorStack()
 for n in f1model:
     correlators.append(mct.correlator (model=f1model[n], blocks=50, maxiter=1000000, blocksize=512, accuracy=1e-12, store=True))
 correlators.solve_all()
 ```
+
+The critical decay law of the F1 model is $(t/t_0)^{-a}$, where $t_0$ needs to be determined numerically.
 
 ```{code-cell} ipython3
 for phi in correlators:
@@ -168,7 +220,100 @@ trange = 10**np.linspace(-2,10,10)
 plt.plot(trange, (trange/0.314)**-0.5, linestyle='dotted')
 plt.xscale('log')
 plt.yscale('log')
+plt.xlabel(r'$t$')
+plt.ylabel(r'$\phi(t)$')
 plt.xlim(1e-3,1e9)
+plt.show()
+```
+
+```{code-cell} ipython3
+ftcorrelators = [FT(phi.phi[:,0]-phi.phi[-1,0], phi.t, w) for phi in correlators]
+```
+
+```{code-cell} ipython3
+for phi_w in ftcorrelators:
+    plt.plot(w, phi_w.real)
+plt.xscale('log')
+plt.yscale('log')
+plt.xlabel(r'$\omega$')
+plt.ylabel(r'$\hat\phi(\omega)$')
+plt.show()
+```
+
+This is the analytical solution of the F1 model:
+
+```{code-cell} ipython3
+def f1analytical(s, v1):
+    return (v1-s-1)/(2*s*v1) + np.sqrt(((v1-s-1)/(2*s*v1))**2+1/(v1*s))
+```
+
+An we show an exemplary case that the Fourier-transformed solution of the MCT correlator matches the analytical fomula. The dashed black line indicates the critical law, $\sim\omega^{-1/2}$.
+
+```{code-cell} ipython3
+plt.plot(w,f1analytical(-1j*w,1-10**-3).real)
+plt.plot(w,f1analytical(-1j*w,1-10**-3).imag)
+plt.plot(w,ftcorrelators[4].real, linestyle='dashed')
+plt.plot(w,ftcorrelators[4].imag, linestyle='dashed')
+plt.plot(w,w**-0.5,color='black',linestyle='dotted')
+plt.xscale('log')
+plt.yscale('log')
+plt.show()
+```
+
+## Boson Peak
+
++++
+
+In the Newtonian dynamics variant deep in the glass, the F1 model gives a high-frequency spectrum that connects to the "Boson peak" of glass formers. First, observe that the solutions decay to the non-zero plateau indicative of the glass, with non-trivial oscillations.
+
+```{code-cell} ipython3
+phi_bp = mct.correlator(model=mct.f12model(v1=2.0,v2=0.0,), blocks=50, maxiter=1000000,
+                        blocksize=512, accuracy=1e-12, motion_type='newtonian', store=True)
+```
+
+```{code-cell} ipython3
+phi_bp.solve_all()
+```
+
+```{code-cell} ipython3
+plt.plot(phi_bp.t,phi_bp.phi[:,0])
+plt.xscale('log')
+plt.xlim(0.1,100)
+plt.show()
+```
+
+```{code-cell} ipython3
+wlin = np.linspace(1e-5,3.5,200)
+phi_bp = FT(phi_bp.phi[:,0]-phi_bp.phi[-1,0], phi_bp.t, wlin)
+```
+
+```{code-cell} ipython3
+def f1analytical_nd(s, v1):
+    sol1 = (v1-s*s-1)/(2*s*v1) + np.sqrt(((v1-s*s-1)/(2*s*v1))**2+1/(v1))
+    sol2 = (v1-s*s-1)/(2*s*v1) - np.sqrt(((v1-s*s-1)/(2*s*v1))**2+1/(v1))
+    res = np.zeros_like(sol1)
+    z1 = np.sqrt(1-2*np.sqrt(v1)+v1)
+    z2 = np.sqrt(1+2*np.sqrt(v1)+v1)
+    mask = 1j*s > z2
+    res[mask] = sol2[mask]
+    res[~mask] = sol1[~mask]
+    return res
+```
+
+We compare the Fourier transform of the numerical solution with the analytical prediction. (The latter is again a straight-forward solution of a quadratic equation, but we have to be a little more careful when selecting the physical branch of the solutions, determined by positive real part and correct asymptotic behavior.)
+
+The spectrum is highly nontrivial, involving a branch singularity. The MCT solution (given sufficiently fine time-domain grid) indeed reproduces that.
+
+```{code-cell} ipython3
+plt.plot(wlin, (f1analytical_nd(-1j*wlin,2.0) - 0.5/(-1j*wlin)).real)
+plt.plot(wlin, phi_bp.real, '.')
+plt.show()
+```
+
+```{code-cell} ipython3
+plt.plot(wlin, (f1analytical_nd(-1j*wlin,2.0) - 0.5/(-1j*wlin)).imag)
+plt.plot(wlin, phi_bp.imag, '.')
+plt.ylim(-1,1)
 plt.show()
 ```
 
