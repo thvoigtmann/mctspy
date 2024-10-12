@@ -31,7 +31,13 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 nb_custom_formats = {
   ".mystnb": [ "jupytext.reads", { "fmt": "mystnb" } ]
 }
+myst_enable_extensions = [
+  "amsmath"
+]
+nb_execution_mode = 'cache'
+nb_execution_cache_path = ".jupyter_cache"
 
+autodoc_member_order = 'bysource'
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output

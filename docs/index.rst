@@ -79,6 +79,7 @@ implemented.
    fsolver
    util
    impl
+   examples
 
 
 Indices and tables
