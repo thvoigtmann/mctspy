@@ -26,7 +26,7 @@ extensions = [
 ]
 
 templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', '.jupyter_cache' ]
 
 nb_custom_formats = {
   ".mystnb": [ "jupytext.reads", { "fmt": "mystnb" } ]
@@ -44,3 +44,4 @@ autodoc_member_order = 'bysource'
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+

@@ -6,3 +6,4 @@ Examples
    :caption: Contents:
 
    examples/f12.mystnb
+   examples/hss-statics.mystnb

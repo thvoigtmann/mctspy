@@ -236,23 +236,23 @@ def evscan(phi0, phi1, calc_ev, eps=1e-6, accuracy=1e-6):
     evs = [calc_ev(phi) for phi in phis]
     dphi = phis[-1]-phis[0]
     while dphi >= eps:
-        print (phis)
+        #print (phis)
         if evs[0].eval <= evs[1].eval and evs[1].eval <= evs[2].eval:
             if evs[1].eval < accuracy:
-                print ("ev0 = ev1 = 0 < ev2: go between last two")
+                #print ("ev0 = ev1 = 0 < ev2: go between last two")
                 pos=1
                 phi = (phis[1]+phis[2])/2
                 phis[0] = phis[1]
                 evs[0] = evs[1]
             else:
                 if evs[0].eval < accuracy:
-                    print ("0 = ev0 < ev1 < ev2: go between first two")
+                    #print ("0 = ev0 < ev1 < ev2: go between first two")
                     pos=1
                     phi = (phis[0]+phis[1])/2
                     phis[2] = phis[1]
                     evs[2] = evs[1]
                 else:
-                    print ("0 < ev0 < ev1 < ev2: go to higher values")
+                    #print ("0 < ev0 < ev1 < ev2: go to higher values")
                     pos=2
                     phi = phis[2] + dphi
                     phis[0] = phis[1]
@@ -261,7 +261,7 @@ def evscan(phi0, phi1, calc_ev, eps=1e-6, accuracy=1e-6):
                     evs[1] = evs[2]
         else:
             if evs[0].eval > evs[1].eval and evs[1].eval >= evs[2].eval:
-                print ("ev0 > ev1 >= ev2: go to lower values")
+                #print ("ev0 > ev1 >= ev2: go to lower values")
                 pos=0
                 phi = phis[0] - dphi
                 if phi<0:
@@ -272,28 +272,28 @@ def evscan(phi0, phi1, calc_ev, eps=1e-6, accuracy=1e-6):
                 evs[1] = evs[0]
             else:
                 if evs[1].eval > evs[0].eval and evs[1].eval > evs[2].eval:
-                    print ("ev1 is maximum...")
+                    #print ("ev1 is maximum...")
                     if evs[0].eval > evs[2].eval or (evs[0].eval < accuracy and not (evs[2].eval < accuracy)):
-                        print ("go between first two")
+                        #print ("go between first two")
                         pos=1
                         phi = (phis[0]+phis[1])/2
                         phis[2] = phis[1]
                         evs[2] = evs[1]
                     else:
-                        print ("go between last two")
+                        #print ("go between last two")
                         pos=1
                         phi = (phis[1]+phis[2])/2
                         phis[0] = phis[1]
                         evs[0] = evs[1]
                 else:
                     if evs[1].eval >= evs[0].eval and evs[1].eval >= evs[2].eval:
-                        print ("accuracy problem? deciding that ev1 is maximum, go between last two")
+                        #print ("accuracy problem? deciding that ev1 is maximum, go between last two")
                         pos=1
                         phi = (phis[1]+phis[2])/2
                         phis[0] = phis[1]
                         evs[0] = evs[1]
                     else:
-                        print ("cannot decide what to do",[ev.eval for ev in evs])
+                        #print ("cannot decide what to do",[ev.eval for ev in evs])
         evs[pos] = calc_ev(phi)
         phis[pos] = phi
         dphi = (phis[2]-phis[0])/2
