@@ -30,6 +30,12 @@ class CorrelatorStack(list):
             whether to stop or not. This test is performed in addition
             to the stop_on_zero test.
 
+        Returns
+        -------
+        solved_all : bool
+            True if all blocks have been solved for, False if an early-stop
+            condition has caused the function to return.
+
         Notes
         -----
         The iteration over the blocks is the outer loop, so that each
@@ -62,6 +68,7 @@ class CorrelatorStack(list):
                     stop += 1
             if stop == len(self):
                 break
+        return (d==blocks-1)
 
 # if we inherit the correlators from CorrelatorBase, they also
 # act like one-element lists of themselves, with a solve_all method
