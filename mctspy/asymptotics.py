@@ -190,19 +190,25 @@ class beta_scaling_function (correlator):
             self.m = np.zeros((self.halfblocksize*(self.blocks+1),1))
 
     def initial_values (self, imax=50):
+        """Initial values for the beta-correlation functions."""
         iend = imax
         if (iend >= self.halfblocksize): iend = self.halfblocksize-1
         self.model.set_base(self.phi_)
         a, _ = exponents(self.lambda_)
+        A1 = 1./(2 * (a * np.pi / np.sin(a*np.pi) - self.lambda_))
         self.phi_[0] = 0.0
         for i in range(1,iend):
             t = i*self.h0
-            self.phi_[i] = np.power(t/self.t0,-a)
-        self.dPhi_[1] = np.power(self.h0/self.t0,-a)/(1-a)
+            self.phi_[i] = np.power(t/self.t0,-a) \
+                         + A1*self.sigma*np.power(t/self.t0,a)
+        self.dPhi_[1] = np.power(self.h0/self.t0,-a)/(1-a) \
+                      + A1*self.sigma*np.power(self.h0/self.t0,a)/(1+a)
         for i in range(2,iend+1):
             t = i*self.h0
-            self.dPhi_[i] = np.power(self.h/self.t0,-a)/(1-a) \
-                            * (np.power(1./i,a-1) - np.power(i-1.,1.-a))
+            self.dPhi_[i] = np.power(self.h0/self.t0,-a)/(1-a) \
+                            * (np.power(1./i,a-1) - np.power(i-1.,1.-a)) \
+                          + A1*self.sigma*np.power(self.h0/self.t0,a)/(1+a) \
+                            * (np.power(1./i,-a-1) - np.power(i-1.,1.+a))
         self.iend = iend
 
     def solve_block (self, istart, iend):

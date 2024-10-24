@@ -223,6 +223,17 @@ all unit vectors,
 The stencil is currently only implemented for one-, two-, and
 three-dimensional lattices.
 
+The initial values of the :math:`\beta`-correlator are given by
+
+.. math::
+
+    g(t)=(t/t_0)^{-a} + A_1\sigma\,(t/t_0)^a
+
+where :math:`A_1 = 1/(2 (a\pi / \sin(a\pi) - \lambda))`. The solver initializes
+with this formula, omitting the singular initial value; the initial moments
+are calculated from their analytical formula which can include the integral
+over the singularity at :math:`t=0`. Note that the correction term is
+relevant to obtain the correct fluctuations in SBR.
 
 Matrix-Valued Models
 --------------------

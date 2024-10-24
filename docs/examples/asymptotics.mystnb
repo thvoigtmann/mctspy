@@ -9,8 +9,6 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
-mystnb:
-  execution_timeout: -1
 ---
 
 # Beta-Scaling Asymptotics
@@ -22,7 +20,6 @@ import matplotlib.pyplot as plt
 
 ```{code-cell} ipython3
 from tqdm.auto import tqdm
-import pandas as pd
 ```
 
 ```{code-cell} ipython3
@@ -64,12 +61,16 @@ plt.legend()
 plt.show()
 ```
 
+In a log-log plot, the power laws become clearer:
+
 ```{code-cell} ipython3
 plt.plot(g.t[1:], np.abs(g.phi[1:,0]))
-plt.plot(g.t[1:], np.power(g.t[1:],-a),linestyle='dotted')
-plt.plot(g.t[1:], 0.861*np.power(g.t[1:],b),linestyle='dotted')
+plt.plot(g.t[1:-2000], np.power(g.t[1:-2000],-a),linestyle='dotted')
+plt.plot(g.t[1000:], 0.861*np.power(g.t[1000:],b),linestyle='dotted')
 plt.xscale('log')
 plt.yscale('log')
+plt.xlabel(r'$t/t_0')
+plt.ylabel(r'$|g(t)|$')
 plt.show()
 ```
 
@@ -91,15 +92,6 @@ plt.plot(ltab,Btab)
 plt.xlabel(r'$\lambda$')
 plt.ylabel(r'$B_\lambda$')
 plt.show()
-```
-
-```{code-cell} ipython3
-df = pd.DataFrame(np.array((ltab,Btab)).T,columns=[r'$\lambda$',r'$B_\lambda$'])
-```
-
-```{code-cell} ipython3
-with pd.option_context('display.max_rows',10,'display.max_columns',10):
-    print (df)
 ```
 
 ```{code-cell} ipython3

@@ -69,6 +69,22 @@ their spectra, or the calculation of MCT's exponent parameter, are
 implemented.
 
 
+Contributors
+------------
+
+While this specific implementation is derived from code developed initially
+during the PhD thesis of Thomas Voigtmann, it is the collected effort
+of many people working on MCT over many decades. Contributions are in
+particular acknowledged from
+
+- Matthias Fuchs: initial idea for the "moment algorithm" (together with Ivo Hofacker), a lot of building blocks taken from old Fortran code, and code for sheared systems.
+- Thomas Franosch: many discussions around the matrix code, non-uniform wave-number grids and the two-dimensional version of the theory.
+- Liesbeth Janssen and her group: for pushing the development of modern code through their development of Julia-based MCT and GMCT code.
+- Mathias Mayr: for valuable cross-checking, non-Gaussian parameter code.
+- Tommaso Rizzo: for the development of multi-dimensional SBR code.
+
+
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:

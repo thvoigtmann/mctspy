@@ -9,5 +9,6 @@ Examples
    examples/hss-statics.mystnb
    examples/hspy.mystnb
    examples/asymptotics.mystnb
+   examples/sbr.mystnb
    examples/f12pnas.mystnb
    examples/granular.mystnb

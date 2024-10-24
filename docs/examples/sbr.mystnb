@@ -9,6 +9,8 @@ kernelspec:
   display_name: Python 3 (ipykernel)
   language: python
   name: python3
+mystnb:
+  execution_timeout: -1
 ---
 
 # Stochastic Beta-Relaxation Theory
@@ -30,6 +32,16 @@ import mctspy as mct
 rng = np.random.default_rng()
 ```
 
+## Spatially dependent solution
+
++++
+
+The equations that we solve are
+\begin{equation} \sigma(x) + \alpha\nabla^2 g(x,t) + \lambda g(x,t)^2
+    = \frac{d}{dt}\int_0^tg(x,t-t')g(x,t')\,dt' \end{equation}
+
++++
+
 We test the solution on a two-dimensional lattice with size $M\times M$:
 
 ```{code-cell} ipython3
@@ -37,7 +49,7 @@ M, dim = 30, 2
 Dsigma = 1.
 ```
 
-Generate a Gaussian-distributed $\sigma(x)$ field with the given mean.
+Generate a Gaussian-distributed $\sigma(x)$ field with the given mean. We draw $M^d$ samples with given variance, and by subtracting the numerical mean from each, we make sure that the sum of all numerical values is exactly the given $\sigma$ mean.
 
 ```{code-cell} ipython3
 sigma = -1.0
@@ -82,7 +94,7 @@ plt.xscale('log')
 plt.xlim(1e-4,g.t[valid][-1])
 plt.ylim(-20,20)
 plt.xlabel(r'$t$')
-plt.ylabel(r'$g_x(t)')
+plt.ylabel(r'$g_x(t)$')
 plt.legend()
 plt.show()
 ```
@@ -133,7 +145,7 @@ plt.xscale('log')
 plt.xlim(1e-4,g.t[valid][-1])
 plt.ylim(-20,20)
 plt.xlabel(r'$t$')
-plt.ylabel(r'$g_x(t)')
+plt.ylabel(r'$g_x(t)$')
 plt.legend()
 plt.show()
 ```
@@ -162,7 +174,9 @@ In the following, we plot the von-Schweidler amplitude field (as a function of g
 ```{code-cell} ipython3
 x_, y_  = np.meshgrid(np.arange(M),np.arange(M))
 fig, ax = plt.subplots(ncols=2,figsize=(16,12),subplot_kw=dict(projection='3d'))
+ax[0].set_title('liquid')
 ax[0].plot_surface(x_, y_, -Blam)
+ax[1].set_title('glass')
 ax[1].plot_surface(x_, y_, -Blamglass)
 plt.show()
 ```
@@ -175,9 +189,13 @@ tau_g = g.phi.shape[0] - np.sum(g.phi<-1,axis=0)
 np.std(tau_g)/np.mean(tau_g)
 ```
 
+## Correlation Length
+
 ```{code-cell} ipython3
 import scipy.signal
 ```
+
+We solve SBR for a range of mean $\sigma$ values and calculate the $B_\lambda(x)$ profiles for each point in order to characterize its statistical evolution as a function of $\sigma$.
 
 ```{code-cell} ipython3
 sigmarange = np.linspace(-1,1,21)
@@ -192,25 +210,21 @@ for sigma in tqdm(sigmarange):
     Bvalues.append(np.mean(g.phi[-50:,:,:]*np.power(g.t[-50:],-b)[:,None,None],axis=0))
 ```
 
+The variance of the $B_\lambda(x)$ profiles (normalized by the absolute value of the mean) increases into the glass, as expected from the plots above.
+
 ```{code-cell} ipython3
-Bvar = [np.std(Bx)/np.mean(Bx) for Bx in Bvalues]
+Bvar = [np.std(Bx)/np.abs(np.mean(Bx)) for Bx in Bvalues]
 plt.plot(sigmarange,Bvar)
+plt.xlabel(r'$\sigma$')
+plt.ylabel(r'$\text{var}(B)/|\text{mean}(B)|$')
 plt.show()
 ```
 
-```{code-cell} ipython3
-cmean=[]
-for Bx in Bvalues:
-    Bcorr=scipy.signal.correlate2d(Bx,Bx, boundary='wrap')
-    Bcorr_norm = Bcorr[Bcorr.shape[0]//2]/np.max(Bcorr)
-    cmean.append(np.mean(Bcorr_norm[Bcorr.shape[0]//8:Bcorr.shape[0]//8*3]))
-plt.plot(sigmarange,np.array(cmean))
-plt.show()
-```
+Assuming that the Fourier transform of the B profiles (isotropically averaged) shows exponential decay at low q, we can extract a correlation length from that. The signal here is stil quite noisy, but there is a non-monotonic evolution of that correlation length.
 
 ```{code-cell} ipython3
 def expfit(x, xi, A):
-    return A*np.exp(-x/xi)
+    return A*np.exp(-x*xi)
 var=[]
 for Bx in Bvalues:
     shape = Bx.shape
