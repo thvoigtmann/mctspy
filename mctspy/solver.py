@@ -7,6 +7,9 @@ import h5py
 from .__util__ import model_base, loaded_model, np_isclose_all
 from .util import exponents, CorrelatorBase
 
+import scipy.sparse.linalg
+from numba import objmode
+
 @njit
 def _decimize (phi, m, dPhi, dM, blocksize):
     halfblocksize = blocksize//2
@@ -74,23 +77,83 @@ def _solve_block (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, kernel, max
                     dPhi[i] = 0.5 * (phi[i-1] + phi[i])
                     dM[i] = 0.5 * (m[i-1] + m[i])
 
-
+##@njit
+#def __ffunc__ (g, a0, b0):
+#    return 2*b0*g - g*g + a0
+#
+#def __find_f_impl__(x0, x1, a0, b0, accuracy):
+#    raise NotImplementedError
+#@overload(__find_f_impl__)
+#def __find_f_impl_overload__(x0, x1, a0, b0, accuracy):
+#    __rf__ = njit(regula_falsi)
+#    def rf (x0, x1, a0, b0, accuracy):
+#        return __rf__(__ffunc__, x0, x1, accuracy=accuracy, isclose=np_isclose_all, fargs=(a0,b0))
+#    return rf
+#@njit
+#def __find_f__ (x0, x1, a0, b0, accuracy):
+#    return __find_f_impl__(x0, x1, a0, b0, accuracy)
+#
+#
 @njit
 def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kernel, maxiter, accuracy, calc_moments, useA, useB, useX, *kernel_args):
 
     Ainv = np.zeros_like(Wq,dtype=phi.dtype)
     B = np.zeros_like(Wq,dtype=phi.dtype)
+    B0 = np.zeros_like(Wq,dtype=phi.dtype)
     C = np.zeros_like(Wq,dtype=phi.dtype)
     if useX:
         Cd = np.zeros_like(Wq,dtype=phi.dtype)
 
+    L = (Ainv.shape[1]-1)//2
+    lr = np.arange(-L,L+1)
+
     Ainv = Wq + dM[1] + Bq*1.5/h + Aq*2.0/h**2
+    if useX:
+        AinvX = Wq + dM[1] + Bq*1.5/h + Aq*2.0/h**2 + dM[1] @ Xq[q] * 0.5*h
+    Anotinv = Ainv.copy()
+    #X = np.ones((M,2*L+1,2*L+1),dtype=complex)*np.diag(np.ones(2*L+1))
+    Y = np.zeros_like(Ainv)
+    Y[:,L,L] = 1.0 + 0.0j
+    #X = X-Y
+    X = np.zeros_like(Ainv)
+    for l in lr:
+        if l<0:
+            X[:,L+l,L+l] = 1.0 + 0.0j
+        elif l>0:
+            X[:,L+l,L+l] = 1.0 + 0.0j
+    PY = np.zeros((M,2*L+1,1),dtype=phi.dtype)
+    PY[:,L,0] = 1.0
+    PX = np.zeros((M,2*L+1,2*L),dtype=phi.dtype)
+    for l in lr:
+        if l<0:
+            PX[:,L+l,L+l] = 1.0
+        elif l>0:
+            PX[:,L+l,L+l-1] = 1.0
+    A_D = np.zeros((M,1,1),dtype=phi.dtype)
+    A_B = np.zeros((M,2*L,1),dtype=phi.dtype)
+    A_C = np.zeros((M,1,2*L),dtype=phi.dtype)
+    A_A = np.zeros((M,2*L,2*L),dtype=phi.dtype)
+    L_A = np.zeros_like(A_A)
+    L_B = np.zeros_like(A_B)
+    L_C = np.zeros_like(A_C)
+    L_D = np.zeros_like(A_D)
+    schur = np.zeros_like(A_A)
     for q in range(M):
-        if useX:
-            Ainv[q] += dM[1,q] @ Xq[q] * 0.5*h
+        AinvX[q] += dM[1,q] @ Xq[q] * 0.5*h
+        A_A[q] = PX[q].T @ AinvX[q] @ PX[q]
+        A_B[q] = PX[q].T @ AinvX[q] @ PY[q]
+        A_C[q] = PY[q].T @ AinvX[q] @ PX[q]
+        A_D[q] = PY[q].T @ AinvX[q] @ PY[q]
+        schur[q] = A_A[q] - A_B[q] @ np.linalg.inv(A_D[q]) @ A_C[q]
+        schur[q] = np.linalg.inv(schur[q])
+        L_A[q] = schur[q]
+        L_B[q] = - schur[q] @ A_B[q] @ np.linalg.inv(A_D[q])
+        L_C[q] = - np.linalg.inv(A_D[q]) @ A_C[q] @ schur[q]
+        L_D[q] = np.linalg.inv(A_D[q]) + np.linalg.inv(A_D[q]) @ A_C[q] @ schur[q] @ A_B[q] @ np.linalg.inv(A_D[q])
         Ainv[q] = np.linalg.inv(Ainv[q])
-        #Ainv[q] = np.linalg.inv(Wq[q] + dM[1,q] + Bq[q]*1.5/h + Aq[q]*2.0/h**2)
+        AinvX[q] = np.linalg.inv(AinvX[q])
         B[q] = -dPhi[1,q] + phi[0,q]
+        B0[q] = -dPhi[1,q] + phi[0,q]
         if useX:
             B[q] -= Xq[q] @ dPhi[1,q] * 0.5*h
 
@@ -115,8 +178,9 @@ def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kern
             if (i-ibar > ibar):
                 for q in range(M):
                     Cd[q] += dM[k,q] @ Xq[q] @ (phi[i-ibar,q] + phi[i-ibar-1,q])
-            for q in range(M):
-                C[q] += 0.5*h*Cd[q]
+            # tst
+            #for q in range(M):
+            #    C[q] += 0.5*h*Cd[q]
 
         for q in range(M):
             C[q] += m[i-ibar,q] @ phi[ibar,q]
@@ -124,16 +188,59 @@ def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kern
                 C[q] += Bq[q] @ (-2*phi[i-1,q] + 0.5*phi[i-2,q]) / h
             if useA:
                 C[q] += Aq[q] @ (-5*phi[i-1,q] + 4*phi[i-2,q] - phi[i-3,q])/h**2
-            C[q] = Ainv[q] @ C[q]
+            #C[q] = Ainv[q] @ C[q]
 
         iterations = 0
         converged = False
         newphi = phi[i-1].copy()
+        newphiY = newphi.copy()
         while (not converged and iterations < maxiter):
             phi[i] = newphi
             kernel (m[i], phi[i], i, h*i, *kernel_args)
             for q in range(M):
-                newphi[q] = Ainv[q] @ m[i,q] @ B[q] - C[q]
+                # 3. strange idea
+                #newphi[q] = AinvX[q] @ (m[i,q] @ Xq[q] @ dPhi[1,q] *0.5*h - Cd[q]*0.5*h)
+                #newphiY[q] = Ainv[q] @ (m[i,q] @ B0[q] - C[q])
+                #newphi[q] = X[q] @ newphi[q] + Y[q] @ newphiY[q]
+                #
+                #newphiY[q] = Ainv[q] @ (m[i,q] @ B[q] - C[q]) - X[q] @ newphi[q] - AinvX[q] @ (Cd[q]*0.5*h + dM[1,q] @ Xq[q]*0.5*h @ phi[i,q])
+                #newphiY[q] = Ainv[q] @ (m[i,q] @ B0[q] - C[q])
+                #newphiY[q] = Ainv[q] @ (m[i,q] @ B0[q] - C[q]) - AinvX[q] @ (dM[1,q] @ Xq[q] @ Ainv[q] @ (m[i,q] @ B0[q] - C[q]) + m[i,q] @ Xq[q] @ dPhi[1,q] + Cd[q])*0.5*h
+                #newphi[q] = AinvX[q] @ (m[i,q] @ X[q] @ B[q] - X[q] @ C[q] - Cd[q]*0.5*h)
+                #newphi[q] = AinvX[q] @ (m[i,q] @ B[q] - C[q] - Cd[q]*0.5*h) - AinvX[q] @ (Anotinv[q] @ Y[q] @ phi[i,q])
+                #newphiY[q] = Ainv[q] @ (m[i,q] @ Y[q] @ B0[q] - Y[q] @ C[q])
+                #newphi[q] = X[q] @ newphi[q] + Y[q] @ newphiY[q]
+                # 2. inversion using Schur complement
+                #tmp = m[i,q] @ B[q] - C[q] - 0.5*h*Cd[q]
+                #tmp_A = PX[q].T @ tmp @ PX[q]
+                #tmp_B = PX[q].T @ tmp @ PY[q]
+                ##tmp = m[i,q] @ B0[q] - C[q]
+                #tmp_C = PY[q].T @ tmp @ PX[q]
+                #tmp_D = PY[q].T @ tmp @ PY[q]
+                #newphi_A = L_A[q] @ tmp_A + L_B[q] @ tmp_C
+                #newphi_B = L_A[q] @ tmp_B + L_B[q] @ tmp_D
+                #newphi_C = L_C[q] @ tmp_A + L_D[q] @ tmp_C
+                #newphi_D = L_C[q] @ tmp_B + L_D[q] @ tmp_D
+                #newphi[q] = PX[q] @ newphi_A @ PX[q].T \
+                #          + PX[q] @ newphi_B @ PY[q].T \
+                #          + PY[q] @ newphi_C @ PX[q].T \
+                #          + PY[q] @ newphi_D @ PY[q].T
+                # 0. direct iteration
+                newphi[q] = AinvX[q] @ (m[i,q] @ B[q] - C[q] - Cd[q]*0.5*h)
+                # 1. semi-implicit iteration
+                #newphi[q] = Ainv[q] @ (m[i,q] @ B[q] - C[q] - Cd[q]*0.5*h)
+                #if useX:
+                #    newphi[q] -= Ainv[q] @ dM[1,q] @ Xq[q] * 0.5*h @ phi[i,q]
+                #
+                # 3. bisection?
+
+                for l in lr:
+                    for ld in lr:
+                        if not (l-ld)%2: # even
+                            newphi[q,L+l,L+ld] = newphi[q,L+l,L+ld].real + 0.j
+                        else:
+                            newphi[q,L+l,L+ld] = newphi[q,L+l,L+ld].imag*1j + 0.0
+
             iterations += 1
             if np_isclose_all(newphi.reshape(-1), phi[i].reshape(-1),
                           rtol=accuracy, atol=accuracy):
