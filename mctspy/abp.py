@@ -94,6 +94,7 @@ class abp_model_2d (model_base):
         return wTinv0
     def omega_T_inv (self, Lcut):
         r"""Return inverse translation-frequency matrix, times q^2D_0."""
+        # this calculates the cut-off of the proper inf-dim inverse:
         L = Lcut
         wTinv0 = self.omega_s_T_inv (Lcut)
         wTinv = wTinv0.copy()
@@ -105,6 +106,11 @@ class abp_model_2d (model_base):
                         (wTinv0[:,L+1,L+ld]+wTinv0[:,L-1,L+ld])/ \
                         (self.q**2*self.D0 + u0*(wTinv0[:,L+1,L]+wTinv0[:,L-1,L]))
         return wTinv
+        # the following would be direct inversion of the cut-off matrix:
+        #wTinv = self.omega_T(Lcut)
+        #for q in range(self.M):
+        #    wTinv[q] = la.inv(wTinv[q])
+        #return wTinv
     def omega_R (self, Lcut):
         """Return rotation-frequency matrix."""
         L, S = Lcut, 2*Lcut+1
@@ -391,10 +397,10 @@ class abp_model_2d (model_base):
                 )
             for qi in range(M):
                 m[qi,:,:] = np.dot(wTinv[qi],np.dot(m[qi],wTinv[qi]))
-                #for l in lr:
-                #    for ld in lr:
-                #        if not (l-ld)%2: # even
-                #            m[qi,L+l,L+ld] = m[qi,L+l,L+ld].real + 0.j
-                #        else:
-                #            m[qi,L+l,L+ld] = m[qi,L+l,L+ld].imag*1j + 0.0
+                for l in lr:
+                    for ld in lr:
+                        if not (l-ld)%2: # even
+                            m[qi,L+l,L+ld] = m[qi,L+l,L+ld].real + 0.j
+                        else:
+                            m[qi,L+l,L+ld] = m[qi,L+l,L+ld].imag*1j + 0.0
         return ker
