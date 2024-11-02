@@ -109,7 +109,7 @@ def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kern
 
     Ainv = Wq + dM[1] + Bq*1.5/h + Aq*2.0/h**2
     if useX:
-        AinvX = Wq + dM[1] + Bq*1.5/h + Aq*2.0/h**2 + dM[1] @ Xq[q] * 0.5*h
+        AinvX = Wq + dM[1] + Bq*1.5/h + Aq*2.0/h**2 #+ dM[1] @ Xq[q] * 0.5*h
     Anotinv = Ainv.copy()
     #X = np.ones((M,2*L+1,2*L+1),dtype=complex)*np.diag(np.ones(2*L+1))
     Y = np.zeros_like(Ainv)
@@ -214,7 +214,7 @@ def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kern
                 #tmp = m[i,q] @ B[q] - C[q] - 0.5*h*Cd[q]
                 #tmp_A = PX[q].T @ tmp @ PX[q]
                 #tmp_B = PX[q].T @ tmp @ PY[q]
-                ##tmp = m[i,q] @ B0[q] - C[q]
+                #tmp = m[i,q] @ B0[q] - C[q]
                 #tmp_C = PY[q].T @ tmp @ PX[q]
                 #tmp_D = PY[q].T @ tmp @ PY[q]
                 #newphi_A = L_A[q] @ tmp_A + L_B[q] @ tmp_C
@@ -229,8 +229,9 @@ def _solve_block_mat (istart, iend, h, Aq, Bq, Wq, Xq, phi, m, dPhi, dM, M, kern
                 newphi[q] = AinvX[q] @ (m[i,q] @ B[q] - C[q] - Cd[q]*0.5*h)
                 # 1. semi-implicit iteration
                 #newphi[q] = Ainv[q] @ (m[i,q] @ B[q] - C[q] - Cd[q]*0.5*h)
+                #newphi[q] = Ainv[q] @ (m[i,q] @ B[q] - C[q])
                 #if useX:
-                #    newphi[q] -= Ainv[q] @ dM[1,q] @ Xq[q] * 0.5*h @ phi[i,q]
+                #    newphi[q] -= Ainv[q] @ (Cd[q] + dM[1,q] @ Xq[q] @ phi[i,q]) * 0.5*h
                 #
                 # 3. bisection?
 
