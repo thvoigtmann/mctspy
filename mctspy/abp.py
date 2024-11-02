@@ -21,7 +21,7 @@ def _calc_phase(phase,L,q,k,p,x,y):
                     phase[:,L+l1,L+l2,L+l3,L+l4] = np.sum(np.sum(x[:,None,None]**(abs(mu)-a) * y[:,None,None]**a * (smu*1j)**a * (-snu*1j)**b * (k/p)[:,None,None]**abs(nu) * (q/k-x)[:,None,None]**(abs(nu)-b) * y[:,None,None]**b, axis=-1), axis=-1)
 
 class abp_model_2d (model_base):
-    def __init__ (self, Sq, q, L=1, D0=1.0, Dr=1.0, v0=0.0):
+    def __init__ (self, Sq, q, L=1, D0=1.0, Dr=1.0, v0=0.0, nu=0.0):
         model_base.__init__(self)
         self.dtype = np.dtype('complex')
         self.fixed_motion_type = 'brownian'
@@ -35,6 +35,7 @@ class abp_model_2d (model_base):
         self.D0 = D0
         self.Dr = Dr
         self.v0 = v0
+        self.nu = nu
         self.__init_vertices__ ()
     def __len__ (self):
         return self.M
@@ -115,7 +116,8 @@ class abp_model_2d (model_base):
         """Return rotation-frequency matrix."""
         L, S = Lcut, 2*Lcut+1
         return np.ones((self.M,S,S),dtype=self.dtype) \
-               * self.Dr *np.diag(np.arange(-Lcut, Lcut+1)**2)
+               * (self.Dr *np.diag(np.arange(-Lcut, Lcut+1)**2) \
+                 - self.nu * 1j * np.arange(-Lcut, Lcut+1))
     def low_density_solution (self, t, Lcut):
         L, S = Lcut, 2*Lcut+1
         phi = np.zeros((t.shape[0], self.M, S, S), dtype=self.dtype)
@@ -308,6 +310,7 @@ class abp_model_2d (model_base):
         omega_T_inv = void(self.wTinv)
         Sq, c = self.sq, self.cq
         Pe_t = self.v0/self.D0
+        _nu = self.nu
         @njit
         def ker (m, phi, i, t):
             A = nparray(Aqk)
@@ -397,10 +400,11 @@ class abp_model_2d (model_base):
                 )
             for qi in range(M):
                 m[qi,:,:] = np.dot(wTinv[qi],np.dot(m[qi],wTinv[qi]))
-                for l in lr:
-                    for ld in lr:
-                        if not (l-ld)%2: # even
-                            m[qi,L+l,L+ld] = m[qi,L+l,L+ld].real + 0.j
-                        else:
-                            m[qi,L+l,L+ld] = m[qi,L+l,L+ld].imag*1j + 0.0
+                if _nu == 0.0:
+                    for l in lr:
+                        for ld in lr:
+                            if not (l-ld)%2: # even
+                                m[qi,L+l,L+ld] = m[qi,L+l,L+ld].real + 0.j
+                            else:
+                                m[qi,L+l,L+ld] = m[qi,L+l,L+ld].imag*1j + 0.0
         return ker
