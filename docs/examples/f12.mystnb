@@ -22,6 +22,7 @@ import matplotlib.pyplot as plt
 
 ```{code-cell} ipython3
 import itertools
+from tqdm.auto import tqdm
 ```
 
 ```{code-cell} ipython3
@@ -33,6 +34,19 @@ The F12 model is perhaps the most famous schematic model of MCT. It is defined b
 and contains a line of glass transitions at
 \begin{align} v_2^c&=1/\lambda^2 & v_1^c&=(2\lambda-1)/\lambda^2 \end{align}
 with exponent parameter $\lambda\in[1/2,1[$ (and in addition a continuous transition line for $v_1^c=1$ and $v_2\le1$.
+
+```{code-cell} ipython3
+lvals = np.linspace(0.5,1,101)
+plt.plot(1/lvals**2, (2*lvals-1)/lvals**2)
+lvals = np.linspace(0,1,11)
+plt.plot(lvals,np.ones_like(lvals),linestyle='dashed')
+ax = plt.gca()
+ax.text(3,0.8,'glass')
+ax.text(1,0.4,'fluid')
+plt.xlabel(r'$v_2$')
+plt.ylabel(r'$v_1$')
+plt.show()
+```
 
 The value of $\lambda=1/\sqrt{2}$ is often used as an exemplary case:
 
@@ -175,6 +189,8 @@ plt.yscale('log')
 plt.show()
 ```
 
+Calculating $\phi$ from $m$ shows an error that is relatively flat and just the accuracy of the Fourier transform with the given discrete input data. Calculating $m$ from $\phi$ becomes worse at high frequencies, while calculating $m$ from the separate Fourier transforms of $\phi$ and $\dot\phi$ fares a little better there but gives high error at low frequencies, where the numerical differentiation of $\phi(t)$ is inaccurate due to the large step size we use there.
+
 ```{code-cell} ipython3
 plt.plot(w,np.abs(m_w-m_from_phi)*w, label=r'$m$ from $\phi$')
 plt.plot(w,np.abs(phi_w-phi_from_m)*w, label=r'$\phi$ from $m$')
@@ -183,6 +199,60 @@ plt.xscale('log')
 plt.yscale('log')
 plt.xlabel(r'$\omega$')
 plt.ylabel('absolute error')
+plt.legend()
+plt.show()
+```
+
+## Asymptotic Behavior
+
++++
+
+The MCT correlators close to a given critical point (characterized by the parameter $\lambda$) decay asymptotically with power laws towards and from the intermediate-time plateau. The first power law is called the critical decay law,
+$$ \phi(t)-f^c\sim t^{-a} $$
+and it is independent of the distance to the critical point. The second power law only exists for fluid states on a time scale that diverges with the approach to the critical point. It is termed the von Schweidler law,
+$$ \phi(t)-f^c\sim -t^b $$
+
++++
+
+The plateau value at the critical point, $f^c$, can be evaluated analytically for the F12 model:
+
+```{code-cell} ipython3
+def f(lval):
+    v1c, v2c = (2*lval-1)/lval**2, 1/lval**2
+    return 1 - (v1c+v2c)/(2*v2c) + np.sqrt((v1c+v2c)**2/(4*v2c**2) - 1/v2c)
+def fc(lval):
+    return 1-lval
+```
+
+The exponents $a$ and $b$ are connected to $\lambda$; they can be calculated using `mct.util.exponents`.
+
+```{code-cell} ipython3
+lvals=np.linspace(0.5,0.9,5)
+```
+
+```{code-cell} ipython3
+lphi = {}
+for lval in tqdm(lvals):
+    v1, v2 = (2*lval-1)/lval**2 - 1e-5, 1/lval**2
+    lphi[lval] = mct.correlator(model = mct.f12model (v1=v1, v2=v2), store = True)
+    lphi[lval].solve_all()
+```
+
+```{code-cell} ipython3
+colors = itertools.cycle(plt.rcParams['axes.prop_cycle'].by_key()['color'])
+for lval in lvals[:-2]:
+    c = next(colors)
+    phimod = np.abs(lphi[lval].phi - fc(lval))
+    plt.plot(lphi[lval].t,phimod, color=c)
+    a, b = mct.util.exponents(lval)
+    tr = 10**np.linspace(0,6,10)
+    plt.plot(tr, 0.5*tr**-a,linestyle='dashed',color=c,label=r'critical decay $t^{{-a}}$, $a={:.4f}$'.format(a))
+    tr = 10**np.linspace(8,11,10)
+    plt.plot(tr, phimod[-1200,0]*(tr/tr[0])**b,linestyle='dashdot',color=c,label=r'von Schweidler $-t^b$. $b={:.4f}$'.format(b))
+plt.xscale('log')
+plt.yscale('log')
+plt.xlabel(r'$t$')
+plt.ylabel(r'$|\phi(t)-f^c|$')
 plt.legend()
 plt.show()
 ```
